@@ -355,6 +355,9 @@ git push
 - 2026-02-01 - [ui] Lesson learned: 3-column layouts don't work well on mobile or tablet. Prevention: Use single-column or max 2-column layout with stacked sections for mobile.
 - 2026-02-01 - [ui] Lesson learned: Sidebar settings should be minimal and collapsed by default. Prevention: Move rarely-used settings to sidebar expanders, keep main UI clean.
 - 2026-02-01 - [ui] Lesson learned: Event list needs to be scannable at a glance. Prevention: Show key info (date, time, location) on single line, notes as caption below.
+- 2026-02-01 - [ui] Lesson learned: Calendar-style grouped display is more intuitive than flat event list. Prevention: Group events by date with clear day headers.
+- 2026-02-01 - [ui] Lesson learned: AI-powered editing is more flexible than bulk edit checkboxes. Prevention: Accept natural language instructions, let AI interpret user intent.
+- 2026-02-01 - [ui] Lesson learned: Location abbreviations with footnotes reduce visual clutter. Prevention: Use single-letter codes (R, B, W) with legend at bottom.
 
 ---
 
