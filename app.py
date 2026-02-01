@@ -41,24 +41,58 @@ st.markdown("""
 <style>
     .main .block-container {
         padding-top: 1.5rem;
-        max-width: 800px;
+        max-width: 900px;
     }
     h1 { font-size: 1.8rem !important; margin-bottom: 0.5rem !important; }
     hr { margin: 1rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.1); }
     
-    /* Calendar grid styling */
-    .calendar-event {
-        background: rgba(74, 158, 255, 0.15);
-        border-left: 3px solid #4A9EFF;
-        padding: 8px 12px;
-        margin: 4px 0;
-        border-radius: 4px;
-        font-size: 0.9rem;
+    /* Calendar table styling */
+    .cal-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        margin: 0.5rem 0;
     }
-    .calendar-day {
+    .cal-table th {
+        background: rgba(74, 158, 255, 0.2);
+        padding: 8px 4px;
+        text-align: center;
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.1);
+        min-width: 90px;
+    }
+    .cal-table td {
+        padding: 6px;
+        vertical-align: top;
+        border: 1px solid rgba(255,255,255,0.1);
+        min-height: 60px;
+        background: rgba(0,0,0,0.2);
+    }
+    .cal-date {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.5);
+        margin-bottom: 4px;
+    }
+    .cal-event {
+        background: rgba(74, 158, 255, 0.25);
+        border-radius: 3px;
+        padding: 4px 6px;
+        margin: 2px 0;
+        font-size: 0.8rem;
+        line-height: 1.3;
+    }
+    .cal-time {
         font-weight: 600;
         color: #4A9EFF;
-        margin-top: 1rem;
+    }
+    .cal-loc {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.75rem;
+    }
+    .cal-empty {
+        color: rgba(255,255,255,0.2);
+        text-align: center;
+        padding: 20px 4px;
     }
     .location-footnote {
         font-size: 0.8rem;
@@ -182,11 +216,32 @@ def get_location_legend(events):
 
 
 # ============================================================================
-# CALENDAR VIEW
+# CALENDAR VIEW - Weekly Grid
 # ============================================================================
 
+def get_week_bounds(dates):
+    """Get the Monday-Sunday bounds for all weeks containing events"""
+    if not dates:
+        return []
+    
+    min_date = min(dates)
+    max_date = max(dates)
+    
+    # Find Monday of first week
+    start_monday = min_date - timedelta(days=min_date.weekday())
+    # Find Sunday of last week  
+    end_sunday = max_date + timedelta(days=(6 - max_date.weekday()))
+    
+    weeks = []
+    current = start_monday
+    while current <= end_sunday:
+        weeks.append(current)
+        current += timedelta(days=7)
+    
+    return weeks
+
 def render_calendar_view(events):
-    """Render events in a calendar-style view grouped by date"""
+    """Render events in a weekly calendar grid table"""
     if not events:
         return
     
@@ -196,34 +251,49 @@ def render_calendar_view(events):
         date_key = event.start_time.date()
         events_by_date[date_key].append(event)
     
-    # Sort dates
-    sorted_dates = sorted(events_by_date.keys())
+    # Get week boundaries
+    all_dates = list(events_by_date.keys())
+    week_mondays = get_week_bounds(all_dates)
     
-    # Render each day
-    for date in sorted_dates:
-        day_events = events_by_date[date]
-        day_name = date.strftime("%A")  # Full day name
-        date_str = date.strftime("%b %d")  # e.g., "Jan 29"
-        
-        st.markdown(f"**{day_name}, {date_str}**")
-        
-        for event in sorted(day_events, key=lambda e: e.start_time):
-            time_str = f"{event.start_time.strftime('%H:%M')} - {event.end_time.strftime('%H:%M')}"
-            loc_abbrev = LOCATION_ABBREV.get(event.location.name, "?") if event.location else "?"
+    # Days of week headers
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    # Build HTML table
+    html = '<table class="cal-table">'
+    html += '<tr>'
+    for day in days:
+        html += f'<th>{day}</th>'
+    html += '</tr>'
+    
+    # Render each week as a row
+    for monday in week_mondays:
+        html += '<tr>'
+        for i in range(7):
+            current_date = monday + timedelta(days=i)
+            day_events = events_by_date.get(current_date, [])
             
-            # Clean event display
-            st.markdown(f"""
-            <div class="calendar-event">
-                <strong>{time_str}</strong> &nbsp;·&nbsp; {loc_abbrev}
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("")  # Spacing between days
+            html += '<td>'
+            html += f'<div class="cal-date">{current_date.strftime("%m/%d")}</div>'
+            
+            if day_events:
+                for event in sorted(day_events, key=lambda e: e.start_time):
+                    time_str = f"{event.start_time.strftime('%H:%M')}-{event.end_time.strftime('%H:%M')}"
+                    loc_abbrev = LOCATION_ABBREV.get(event.location.name, "?") if event.location else "?"
+                    html += f'<div class="cal-event"><span class="cal-time">{time_str}</span><br><span class="cal-loc">@ {loc_abbrev}</span></div>'
+            else:
+                html += '<div class="cal-empty">-</div>'
+            
+            html += '</td>'
+        html += '</tr>'
+    
+    html += '</table>'
+    
+    st.markdown(html, unsafe_allow_html=True)
     
     # Location legend as footnotes
     legend = get_location_legend(events)
     if legend:
-        st.caption(" &nbsp;|&nbsp; ".join(legend))
+        st.caption(" | ".join(legend))
 
 
 # ============================================================================
