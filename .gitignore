@@ -1,0 +1,43 @@
+# Ignore environment files
+.env
+.streamlit/secrets.toml
+
+# Ignore cache directory
+cache/
+*.cache
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ignore output files
+output/*.ics
+output/*.zip
+*.ics
+
+# Ignore input files (may contain personal schedules)
+input/*.txt
+input/*.md
+
+# Ignore config with personal settings
+config.json
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore virtual environments
+venv/
+.venv/
+env/
+ENV/

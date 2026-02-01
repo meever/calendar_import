@@ -1,0 +1,29 @@
+{
+  "locations": {
+    "Regis": {
+      "name": "Regis",
+      "address": "Regis College Athletic Facility, 235 Wellesley St, Weston, MA",
+      "is_default_weekday": true,
+      "is_default_weekend": false
+    },
+    "Brandeis": {
+      "name": "Brandeis",
+      "address": "Gosman Sports and Convocation Center, 415 South St, Waltham, MA",
+      "is_default_weekday": false,
+      "is_default_weekend": true
+    },
+    "Wightman": {
+      "name": "Wightman",
+      "address": "Wightman Tennis Center, 100 Brown St, Weston, MA",
+      "is_default_weekday": false,
+      "is_default_weekend": false
+    }
+  },
+  "timezone": "America/New_York",
+  "default_weekday_location": "Regis",
+  "default_weekend_location": "Brandeis",
+  "default_event_title": "Tyler Swim Practice",
+  "gemini_model": "gemini-flash-latest",
+  "host": "127.0.0.1",
+  "port": 8501
+}
