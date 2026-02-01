@@ -1,14 +1,15 @@
 """
-Swimming Schedule Converter - Professional UI
-AI-powered schedule extraction with clean, modern interface
+Swimming Schedule Converter - Calendar View with AI Editing
+Paste schedule → AI extracts → View calendar → Edit with AI → Export
 """
 
 import streamlit as st
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import os
+from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -22,6 +23,50 @@ from extractor import EventExtractor
 from rules_engine import RulesEngine
 from calendar_exporter import CalendarExporter
 from cache_manager import ExtractionCache
+
+
+# ============================================================================
+# PAGE CONFIG
+# ============================================================================
+
+st.set_page_config(
+    page_title="Swim Schedule",
+    page_icon="🏊",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
+# Custom CSS
+st.markdown("""
+<style>
+    .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 800px;
+    }
+    h1 { font-size: 1.8rem !important; margin-bottom: 0.5rem !important; }
+    hr { margin: 1rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.1); }
+    
+    /* Calendar grid styling */
+    .calendar-event {
+        background: rgba(74, 158, 255, 0.15);
+        border-left: 3px solid #4A9EFF;
+        padding: 8px 12px;
+        margin: 4px 0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .calendar-day {
+        font-weight: 600;
+        color: #4A9EFF;
+        margin-top: 1rem;
+    }
+    .location-footnote {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.6);
+        margin-top: 0.5rem;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -39,14 +84,13 @@ def check_password():
     if st.session_state.password_correct:
         return True
     
-    # Centered login form
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("## 🏊 Swim Schedule")
-        st.markdown("#### Enter password to continue")
+        st.markdown("#### Enter password")
         
         password = st.text_input("Password", type="password", label_visibility="collapsed", 
-                                  placeholder="Enter password...")
+                                  placeholder="Password...")
         
         if st.button("Login", type="primary", use_container_width=True):
             if password == st.secrets["APP_PASSWORD"]:
@@ -57,72 +101,6 @@ def check_password():
     
     return False
 
-
-# ============================================================================
-# PAGE CONFIG & STYLING
-# ============================================================================
-
-st.set_page_config(
-    page_title="Swim Schedule",
-    page_icon="🏊",
-    layout="centered",  # Changed back to centered for better readability
-    initial_sidebar_state="collapsed"
-)
-
-# Custom CSS for professional look
-st.markdown("""
-<style>
-    /* Main container - more breathing room */
-    .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        max-width: 800px;
-    }
-    
-    /* Compact header area */
-    h1 {
-        font-size: 1.8rem !important;
-        margin-bottom: 0.25rem !important;
-    }
-    
-    /* Better text area */
-    .stTextArea textarea {
-        font-size: 14px;
-        line-height: 1.5;
-    }
-    
-    /* Subtle dividers */
-    hr {
-        margin: 1rem 0;
-        border: none;
-        border-top: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    /* Compact metrics in sidebar */
-    [data-testid="stMetricValue"] {
-        font-size: 1.1rem;
-    }
-    
-    /* Event list styling */
-    .event-item {
-        padding: 0.75rem 0;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    
-    /* Download buttons - more prominent */
-    .stDownloadButton button {
-        font-weight: 500;
-    }
-    
-    /* Cleaner expanders */
-    .streamlit-expanderHeader {
-        font-size: 0.9rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# Password check
 if not check_password():
     st.stop()
 
@@ -135,282 +113,363 @@ if 'config_manager' not in st.session_state:
     st.session_state.config_manager = ConfigManager()
     st.session_state.config = st.session_state.config_manager.load()
 
-if 'cache' not in st.session_state:
-    st.session_state.cache = ExtractionCache()
-
 if 'events' not in st.session_state:
     st.session_state.events = []
+
+if 'edit_history' not in st.session_state:
+    st.session_state.edit_history = []  # Track edit iterations
 
 if 'api_key' not in st.session_state:
     st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
 
-# Also check Streamlit secrets for API key
+# Check Streamlit secrets for API key
 if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
     st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
 
 
 # ============================================================================
-# SIDEBAR - Settings (collapsed by default)
+# SIDEBAR - Minimal
 # ============================================================================
 
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
     
-    # API Status
     if st.session_state.api_key:
         st.success("✓ API Connected", icon="🔑")
     else:
         st.error("✗ API Key Missing")
-        st.caption("Add GEMINI_API_KEY to secrets")
     
     st.divider()
     
-    # Event Settings
-    st.markdown("### Event Defaults")
-    config = st.session_state.config
-    
-    new_title = st.text_input(
-        "Default Title",
-        value=config.default_event_title,
-        help="Default title for extracted events"
-    )
-    
-    if new_title != config.default_event_title:
-        config.default_event_title = new_title
-        st.session_state.config_manager.save()
-        st.toast("Title updated!")
-    
-    st.divider()
-    
-    # Cache
-    st.markdown("### Cache")
-    cache_stats = st.session_state.cache.get_stats()
+    # Cache management only
+    cache = ExtractionCache()
+    cache_stats = cache.get_stats()
     
     col1, col2 = st.columns(2)
-    col1.metric("Entries", cache_stats["entries"])
-    col2.metric("Hit Rate", f"{cache_stats['hit_rate']:.0f}%")
+    col1.metric("Cache", cache_stats["entries"])
+    col2.metric("Hits", f"{cache_stats['hit_rate']:.0f}%")
     
     if st.button("Clear Cache", use_container_width=True):
-        st.session_state.cache.clear()
+        cache.clear()
         st.toast("Cache cleared!")
-        st.rerun()
+
+
+# ============================================================================
+# LOCATION ABBREVIATIONS
+# ============================================================================
+
+LOCATION_ABBREV = {
+    "Regis": "R",
+    "Brandeis": "B", 
+    "Wightman": "W"
+}
+
+def get_location_legend(events):
+    """Get location legend for footnotes"""
+    used_locations = set()
+    for event in events:
+        if event.location:
+            used_locations.add(event.location.name)
     
-    st.divider()
+    legend = []
+    for name in sorted(used_locations):
+        abbrev = LOCATION_ABBREV.get(name, name[0])
+        full_address = st.session_state.config.locations.get(name)
+        if full_address:
+            legend.append(f"**{abbrev}** = {name}")
     
-    # Locations (collapsible)
-    with st.expander("📍 Locations"):
-        for name, loc in config.locations.items():
-            st.markdown(f"**{name}**")
-            st.caption(loc.address[:50] + "..." if len(loc.address) > 50 else loc.address)
+    return legend
+
+
+# ============================================================================
+# CALENDAR VIEW
+# ============================================================================
+
+def render_calendar_view(events):
+    """Render events in a calendar-style view grouped by date"""
+    if not events:
+        return
+    
+    # Group events by date
+    events_by_date = defaultdict(list)
+    for event in events:
+        date_key = event.start_time.date()
+        events_by_date[date_key].append(event)
+    
+    # Sort dates
+    sorted_dates = sorted(events_by_date.keys())
+    
+    # Render each day
+    for date in sorted_dates:
+        day_events = events_by_date[date]
+        day_name = date.strftime("%A")  # Full day name
+        date_str = date.strftime("%b %d")  # e.g., "Jan 29"
+        
+        st.markdown(f"**{day_name}, {date_str}**")
+        
+        for event in sorted(day_events, key=lambda e: e.start_time):
+            time_str = f"{event.start_time.strftime('%H:%M')} - {event.end_time.strftime('%H:%M')}"
+            loc_abbrev = LOCATION_ABBREV.get(event.location.name, "?") if event.location else "?"
+            
+            # Clean event display
+            st.markdown(f"""
+            <div class="calendar-event">
+                <strong>{time_str}</strong> &nbsp;·&nbsp; {loc_abbrev}
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("")  # Spacing between days
+    
+    # Location legend as footnotes
+    legend = get_location_legend(events)
+    if legend:
+        st.caption(" &nbsp;|&nbsp; ".join(legend))
+
+
+# ============================================================================
+# AI EDIT FUNCTION
+# ============================================================================
+
+def apply_ai_edits(events, instructions):
+    """Send events and edit instructions to AI, return updated events"""
+    from google import genai
+    
+    # Convert events to simple format for AI
+    events_text = []
+    for i, event in enumerate(events, 1):
+        loc = event.location.name if event.location else "Unknown"
+        events_text.append(
+            f"{i}. {event.start_time.strftime('%a %m/%d %H:%M')}-{event.end_time.strftime('%H:%M')} @ {loc}"
+        )
+    
+    current_schedule = "\n".join(events_text)
+    
+    # Build locations context
+    locations_info = "\n".join([
+        f"- {name}: {loc.address}"
+        for name, loc in st.session_state.config.locations.items()
+    ])
+    
+    prompt = f"""You are a schedule editing assistant. Here is the current swimming schedule:
+
+{current_schedule}
+
+KNOWN LOCATIONS:
+{locations_info}
+
+USER'S EDIT REQUEST:
+{instructions}
+
+Apply the user's requested changes and return the COMPLETE updated schedule as JSON.
+Return ONLY valid JSON (no markdown, no explanations):
+
+{{
+  "events": [
+    {{
+      "start_time": "2026-01-29T18:00:00",
+      "end_time": "2026-01-29T20:00:00",
+      "summary": "Swim Practice",
+      "location_name": "Regis",
+      "is_ambiguous": false
+    }}
+  ]
+}}
+
+Rules:
+- Keep all events unless user asks to delete them
+- Use ISO 8601 format for times
+- Use exact location names from the list above
+- If summary is not specified, use "Swim Practice"
+"""
+    
+    client = genai.Client(api_key=st.session_state.api_key)
+    
+    response = client.models.generate_content(
+        model=st.session_state.config.gemini_model,
+        contents=prompt
+    )
+    
+    response_text = response.text.strip()
+    
+    # Clean markdown
+    if response_text.startswith("```json"):
+        response_text = response_text[7:]
+    if response_text.startswith("```"):
+        response_text = response_text[3:]
+    if response_text.endswith("```"):
+        response_text = response_text[:-3]
+    response_text = response_text.strip()
+    
+    import json
+    data = json.loads(response_text)
+    
+    events_data = data.get("events", data if isinstance(data, list) else [])
+    
+    # Convert to Event objects
+    new_events = []
+    for event_data in events_data:
+        event = Event(
+            start_time=datetime.fromisoformat(event_data["start_time"]),
+            end_time=datetime.fromisoformat(event_data["end_time"]),
+            summary=event_data.get("summary", "Swim Practice"),
+            location_name=event_data.get("location_name"),
+            is_ambiguous=event_data.get("is_ambiguous", False)
+        )
+        
+        # Map location
+        if event.location_name:
+            event.location = st.session_state.config.locations.get(event.location_name)
+        
+        new_events.append(event)
+    
+    return new_events
 
 
 # ============================================================================
 # MAIN APP
 # ============================================================================
 
-# Compact Header
 st.markdown("# 🏊 Swim Schedule Converter")
 
-# Input Section
+# ============================================================================
+# STEP 1: INPUT
+# ============================================================================
+
 st.markdown("### 📝 Paste Schedule")
 
 schedule_text = st.text_area(
-    "Schedule text",
-    height=200,
+    "Schedule",
+    height=150,
     placeholder="""周四 1/29 下午 6-8 下水+陆上 @ Regis
 周五 1/30 下午 5-7 下水
 周六 1/31 上午 9-11 @ Brandeis""",
-    label_visibility="collapsed"
+    label_visibility="collapsed",
+    key="schedule_input"
 )
 
-# Action buttons in a row
-col_process, col_clear = st.columns([4, 1])
+col1, col2 = st.columns([4, 1])
 
-with col_process:
-    process_disabled = not schedule_text or not st.session_state.api_key
-    process_clicked = st.button(
-        "🤖 Extract Events", 
-        type="primary", 
-        use_container_width=True, 
-        disabled=process_disabled
-    )
+with col1:
+    extract_disabled = not schedule_text or not st.session_state.api_key
+    if st.button("🤖 Extract Events", type="primary", use_container_width=True, disabled=extract_disabled):
+        try:
+            with st.spinner("Analyzing..."):
+                extractor = EventExtractor(
+                    api_key=st.session_state.api_key,
+                    config=st.session_state.config
+                )
+                events = extractor.extract(schedule_text)
+                
+                # Apply rules
+                rules_engine = RulesEngine(st.session_state.config)
+                events = rules_engine.apply_location_rules(events)
+                events = rules_engine.merge_overlapping_events(events)
+                events = rules_engine.deduplicate_events(events)
+                events = rules_engine.sort_events(events)
+                
+                # Ensure all events have summary
+                for event in events:
+                    if not event.summary:
+                        event.summary = "Swim Practice"
+                
+                st.session_state.events = events
+                st.session_state.edit_history = [("Initial extraction", events.copy())]
+                st.rerun()
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
 
-with col_clear:
+with col2:
     if st.button("Clear", use_container_width=True):
         st.session_state.events = []
-        st.session_state.pop('show_downloads', None)
+        st.session_state.edit_history = []
         st.rerun()
-
-# Process schedule
-if process_clicked:
-    try:
-        with st.spinner("Analyzing schedule..."):
-            extractor = EventExtractor(
-                api_key=st.session_state.api_key,
-                config=st.session_state.config
-            )
-            events = extractor.extract(schedule_text)
-            cache_hit = extractor.last_cache_hit
-        
-        if events:
-            rules_engine = RulesEngine(st.session_state.config)
-            events = rules_engine.apply_location_rules(events)
-            events = rules_engine.merge_overlapping_events(events)
-            events = rules_engine.deduplicate_events(events)
-            events = rules_engine.sort_events(events)
-            
-            st.session_state.events = events
-            st.session_state.pop('show_downloads', None)
-            
-            if cache_hit:
-                st.toast(f"⚡ Retrieved {len(events)} events from cache!")
-            else:
-                st.toast(f"✓ Extracted {len(events)} events!")
-            st.rerun()
-        else:
-            st.warning("No events found in the text")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
 
 st.divider()
 
 # ============================================================================
-# RESULTS SECTION
+# STEP 2: CALENDAR VIEW & EDITING
 # ============================================================================
 
 if st.session_state.events:
     events = st.session_state.events
     
-    # Results header with export button
+    # Header with export
     col_title, col_export = st.columns([3, 1])
     
     with col_title:
-        st.markdown(f"### 📅 {len(events)} Event{'s' if len(events) != 1 else ''} Found")
+        st.markdown(f"### 📅 {len(events)} Event{'s' if len(events) != 1 else ''}")
     
     with col_export:
-        export_clicked = st.button("📥 Export", type="primary", use_container_width=True)
+        if st.button("📥 Export", type="primary", use_container_width=True):
+            st.session_state.show_export = True
     
-    # Show download options
-    if export_clicked or st.session_state.get('show_downloads'):
-        st.session_state.show_downloads = True
-        
+    # Export section
+    if st.session_state.get('show_export'):
         exporter = CalendarExporter(st.session_state.config)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
-        # Generate exports
         ics_content = exporter.export(events, CalendarFormat.ICS)
         ics_data = ics_content.encode('utf-8-sig')
         zip_data = exporter.export_to_ics_zip(events, ics_filename=f"swim_{timestamp}.ics")
         
-        # Download buttons
-        dl_col1, dl_col2 = st.columns(2)
-        
-        with dl_col1:
-            st.download_button(
-                "📄 Download .ics",
-                data=ics_data,
-                file_name=f"swim_schedule_{timestamp}.ics",
-                mime="text/calendar",
-                use_container_width=True
-            )
-        
-        with dl_col2:
-            st.download_button(
-                "📦 Download .zip",
-                data=zip_data,
-                file_name=f"swim_schedule_{timestamp}.zip",
-                mime="application/zip",
-                use_container_width=True
-            )
-        
-        st.caption("💡 Use .ics for direct import, .zip for iOS Files app")
+        dl1, dl2 = st.columns(2)
+        with dl1:
+            st.download_button("📄 .ics", data=ics_data, 
+                             file_name=f"swim_{timestamp}.ics", mime="text/calendar",
+                             use_container_width=True)
+        with dl2:
+            st.download_button("📦 .zip", data=zip_data,
+                             file_name=f"swim_{timestamp}.zip", mime="application/zip", 
+                             use_container_width=True)
         st.divider()
     
-    # Events list - clean and scannable
-    for i, event in enumerate(events):
-        col_main, col_edit = st.columns([6, 1])
-        
-        with col_main:
-            # Date and time on one line
-            date_str = event.start_time.strftime("%a %m/%d")
-            time_str = f"{event.start_time.strftime('%H:%M')}-{event.end_time.strftime('%H:%M')}"
-            loc_name = event.location.name if event.location else "?"
-            
-            st.markdown(f"**{date_str}** &nbsp;·&nbsp; {time_str} &nbsp;·&nbsp; 📍 {loc_name}")
-            
-            if event.notes:
-                st.caption(event.notes[:80] + ("..." if len(event.notes) > 80 else ""))
-        
-        with col_edit:
-            if st.button("✏️", key=f"edit_{i}", help="Edit"):
-                st.session_state.editing_event = i
-        
-        # Inline edit form
-        if st.session_state.get('editing_event') == i:
-            with st.container():
-                st.markdown("---")
+    # Calendar view
+    render_calendar_view(events)
+    
+    st.divider()
+    
+    # AI Edit section
+    st.markdown("### ✏️ Edit with AI")
+    st.caption("Describe changes in natural language")
+    
+    edit_instructions = st.text_area(
+        "Edit instructions",
+        height=80,
+        placeholder="Examples:\n- Delete the Saturday event\n- Move Friday to 5:30-7:30pm\n- Change all locations to Brandeis",
+        label_visibility="collapsed",
+        key="edit_instructions"
+    )
+    
+    if st.button("🤖 Apply Changes", disabled=not edit_instructions, use_container_width=True):
+        try:
+            with st.spinner("Applying edits..."):
+                new_events = apply_ai_edits(st.session_state.events, edit_instructions)
                 
-                new_summary = st.text_input("Title", value=event.summary, key=f"sum_{i}")
+                # Apply rules
+                rules_engine = RulesEngine(st.session_state.config)
+                new_events = rules_engine.sort_events(new_events)
                 
-                c1, c2, c3, c4 = st.columns(4)
-                with c1:
-                    new_date = st.date_input("Date", value=event.start_time.date(), key=f"date_{i}")
-                with c2:
-                    new_start = st.time_input("Start", value=event.start_time.time(), key=f"start_{i}")
-                with c3:
-                    new_end = st.time_input("End", value=event.end_time.time(), key=f"end_{i}")
-                with c4:
-                    location_names = list(st.session_state.config.locations.keys())
-                    current_loc = event.location.name if event.location else location_names[0]
-                    new_loc = st.selectbox("Location", location_names, 
-                                           index=location_names.index(current_loc) if current_loc in location_names else 0,
-                                           key=f"loc_{i}")
-                
-                bc1, bc2, bc3 = st.columns([1, 1, 2])
-                with bc1:
-                    if st.button("💾 Save", key=f"save_{i}", type="primary", use_container_width=True):
-                        st.session_state.events[i] = Event(
-                            start_time=datetime.combine(new_date, new_start),
-                            end_time=datetime.combine(new_date, new_end),
-                            summary=new_summary,
-                            location=st.session_state.config.locations[new_loc],
-                            location_name=new_loc,
-                            is_ambiguous=event.is_ambiguous,
-                            raw_text=event.raw_text,
-                            notes=event.notes
-                        )
-                        st.session_state.editing_event = None
-                        st.rerun()
-                with bc2:
-                    if st.button("🗑️", key=f"del_{i}", help="Delete", use_container_width=True):
-                        st.session_state.events.pop(i)
-                        st.session_state.editing_event = None
-                        st.rerun()
-                with bc3:
-                    if st.button("Cancel", key=f"cancel_{i}", use_container_width=True):
-                        st.session_state.editing_event = None
-                        st.rerun()
-                
-                st.markdown("---")
-        
-        # Light separator between events
-        if i < len(events) - 1 and st.session_state.get('editing_event') != i:
-            st.markdown("<div style='border-bottom: 1px solid rgba(255,255,255,0.05); margin: 0.5rem 0;'></div>", 
-                       unsafe_allow_html=True)
+                st.session_state.events = new_events
+                st.session_state.edit_history.append((edit_instructions, new_events.copy()))
+                st.toast(f"✓ Applied: {edit_instructions[:30]}...")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Edit failed: {str(e)}")
+    
+    # Edit history
+    if len(st.session_state.edit_history) > 1:
+        with st.expander("📜 Edit History"):
+            for i, (action, _) in enumerate(st.session_state.edit_history):
+                st.caption(f"{i+1}. {action[:50]}...")
 
 else:
     # Empty state
-    st.markdown("### 📅 Events")
-    st.info("👆 Paste your schedule above and click **Extract Events**")
+    st.markdown("### 📅 Calendar")
+    st.info("👆 Paste your schedule and click **Extract Events**")
     
-    with st.expander("📖 Supported Formats", expanded=False):
+    with st.expander("Supported formats"):
         st.markdown("""
         **Chinese:** `周四 1/29 下午 6-8 下水 @ Regis`
         
         **English:** `Thu Jan 29 6-8pm @ Regis`
-        
-        **Features:**
-        - Combines water + dryland sessions automatically
-        - Recognizes pool locations
-        - Preserves original text in notes
         """)
