@@ -349,6 +349,13 @@ git push
 - 2026-01-31 - [docs] Lesson learned: Duplicate sections confuse readers. Prevention: Consolidate repeated content during documentation updates.
 - 2026-01-31 - [cleanup] Lesson learned: Stale debug docs/tests create confusion. Prevention: Remove or archive obsolete troubleshooting assets after fixes land.
 
+### UI/UX Design
+- 2026-02-01 - [ui] Lesson learned: Wide layout (layout="wide") looks sparse on large monitors and cramped on mobile. Prevention: Use layout="centered" with max-width CSS for consistent readability.
+- 2026-02-01 - [ui] Lesson learned: Multi-step export (select format → click export → download) adds friction. Prevention: Show all download options immediately after clicking Export, let user choose by clicking download button.
+- 2026-02-01 - [ui] Lesson learned: 3-column layouts don't work well on mobile or tablet. Prevention: Use single-column or max 2-column layout with stacked sections for mobile.
+- 2026-02-01 - [ui] Lesson learned: Sidebar settings should be minimal and collapsed by default. Prevention: Move rarely-used settings to sidebar expanders, keep main UI clean.
+- 2026-02-01 - [ui] Lesson learned: Event list needs to be scannable at a glance. Prevention: Show key info (date, time, location) on single line, notes as caption below.
+
 ---
 
 ## Code Quality Standards
