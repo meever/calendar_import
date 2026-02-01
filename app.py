@@ -189,33 +189,6 @@ with st.sidebar:
 
 
 # ============================================================================
-# LOCATION ABBREVIATIONS
-# ============================================================================
-
-LOCATION_ABBREV = {
-    "Regis": "R",
-    "Brandeis": "B", 
-    "Wightman": "W"
-}
-
-def get_location_legend(events):
-    """Get location legend for footnotes"""
-    used_locations = set()
-    for event in events:
-        if event.location:
-            used_locations.add(event.location.name)
-    
-    legend = []
-    for name in sorted(used_locations):
-        abbrev = LOCATION_ABBREV.get(name, name[0])
-        full_address = st.session_state.config.locations.get(name)
-        if full_address:
-            legend.append(f"**{abbrev}** = {name}")
-    
-    return legend
-
-
-# ============================================================================
 # CALENDAR VIEW - Weekly Grid
 # ============================================================================
 
@@ -278,8 +251,8 @@ def render_calendar_view(events):
             if day_events:
                 for event in sorted(day_events, key=lambda e: e.start_time):
                     time_str = f"{event.start_time.strftime('%H:%M')}-{event.end_time.strftime('%H:%M')}"
-                    loc_abbrev = LOCATION_ABBREV.get(event.location.name, "?") if event.location else "?"
-                    html += f'<div class="cal-event"><span class="cal-time">{time_str}</span><br><span class="cal-loc">@ {loc_abbrev}</span></div>'
+                    loc_name = event.location.name if event.location else "?"
+                    html += f'<div class="cal-event"><span class="cal-time">{time_str}</span><br><span class="cal-loc">{loc_name}</span></div>'
             else:
                 html += '<div class="cal-empty">-</div>'
             
@@ -289,11 +262,6 @@ def render_calendar_view(events):
     html += '</table>'
     
     st.markdown(html, unsafe_allow_html=True)
-    
-    # Location legend as footnotes
-    legend = get_location_legend(events)
-    if legend:
-        st.caption(" | ".join(legend))
 
 
 # ============================================================================
