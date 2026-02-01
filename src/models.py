@@ -95,7 +95,7 @@ class Config:
     timezone: str = "America/New_York"
     default_weekday_location: Optional[str] = "Regis"
     default_weekend_location: Optional[str] = "Brandeis"
-    default_event_title: str = "Tyler Swim Practice"  # Default title for events
+    default_event_title: str = "Swim Practice"  # Default title for events (AI provides this, fallback only)
     api_key: Optional[str] = None
     gemini_model: str = "gemini-flash-latest"  # Auto-updates to newest flash model
     host: str = "0.0.0.0"  # Accessible from local network (192.168.x.x)
