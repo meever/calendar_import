@@ -54,12 +54,6 @@ CRITICAL RULES:
    - Use the full range: start at underwater start, end at dryland end
    - Example: "6~7:30pm 下水、7:30~8pm 陆上拉伸" → 6:00 PM to 8:00 PM
    
-   **Case B - Combined time without separate dryland time**:
-   - If ONLY one time range is given for combined session (e.g., "5~6:30 下水+陆上拉伸")
-   - Automatically ADD 30 MINUTES to the end time for dryland training
-   - Example: "5~6:30 下水+陆上拉伸" → 5:00 PM to 7:00 PM (6:30 + 30 min)
-   - Example: "下午 6 - 8 下水+陆上" → 6:00 PM to 8:30 PM (8:00 + 30 min)
-   
    **How to tell the difference**:
    - Separate times: Look for comma (、), multiple time ranges, or explicit "X~Y下水...Y~Z陆上" patterns
    - Combined time: Single time range with "下水+陆上" or "下水陆上" together
