@@ -53,6 +53,12 @@ CRITICAL RULES:
    - If times are clearly separated (e.g., "6~7:30pm 下水、7:30~8pm 陆上拉伸")
    - Use the full range: start at underwater start, end at dryland end
    - Example: "6~7:30pm 下水、7:30~8pm 陆上拉伸" → 6:00 PM to 8:00 PM
+
+   **Case B - Single time specified**:
+   - If ONLY one time range is given (e.g., "6-8pm 下水+陆上")
+   - Use EXACTLY the specified time range for the entire event
+   - **DO NOT** add extra time for dryland if not explicitly stated
+   - Example: "周四 1/29 下午 6-8 下水+陆上" → 18:00 to 20:00 (NOT 20:30)
    
    **How to tell the difference**:
    - Separate times: Look for comma (、), multiple time ranges, or explicit "X~Y下水...Y~Z陆上" patterns
