@@ -41,6 +41,9 @@ class CalendarExporter:
         for event in events:
             ics_event = IcsEvent()
             
+            # Set creation timestamp (generates DTSTAMP - RFC 5545 requirement)
+            ics_event.created = datetime.now()
+            
             # Set times with timezone
             ics_event.begin = event.start_time.replace(tzinfo=tz)
             ics_event.end = event.end_time.replace(tzinfo=tz)
