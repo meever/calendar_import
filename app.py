@@ -169,6 +169,17 @@ if 'show_share_form' not in st.session_state:
 
 
 # ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def truncate_text(text: str, max_length: int = 30) -> str:
+    """Truncate text with ellipsis if longer than max_length"""
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    return text
+
+
+# ============================================================================
 # SIDEBAR - Minimal
 # ============================================================================
 
@@ -219,12 +230,6 @@ with st.sidebar:
 # ============================================================================
 # CALENDAR VIEW - Weekly Grid
 # ============================================================================
-
-def truncate_text(text: str, max_length: int = 30) -> str:
-    """Truncate text with ellipsis if longer than max_length"""
-    if len(text) > max_length:
-        return text[:max_length] + "..."
-    return text
 
 def get_week_bounds(dates):
     """Get the Monday-Sunday bounds for all weeks containing events"""
