@@ -3,7 +3,7 @@ Calendar export functionality for multiple formats
 """
 
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import io
 import zipfile
@@ -40,6 +40,9 @@ class CalendarExporter:
         
         for event in events:
             ics_event = IcsEvent()
+            
+            # Set creation timestamp (generates DTSTAMP in UTC - RFC 5545 requirement)
+            ics_event.created = datetime.now(timezone.utc)
             
             # Set times with timezone
             ics_event.begin = event.start_time.replace(tzinfo=tz)
