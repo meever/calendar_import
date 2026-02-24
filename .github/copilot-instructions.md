@@ -350,6 +350,7 @@ git push
 - 2026-01-31 - [cleanup] Lesson learned: Stale debug docs/tests create confusion. Prevention: Remove or archive obsolete troubleshooting assets after fixes land.
 
 ### UI/UX Design
+- 2026-02-24 - [feature] Lesson learned: Shared calendar library needed to be separate from anonymous cache to support named/browsable calendars. Prevention: When adding social/sharing features, create dedicated storage with metadata (name, description, timestamps).
 - 2026-02-01 - [ui] Lesson learned: Wide layout (layout="wide") looks sparse on large monitors and cramped on mobile. Prevention: Use layout="centered" with max-width CSS for consistent readability.
 - 2026-02-01 - [ui] Lesson learned: Multi-step export (select format → click export → download) adds friction. Prevention: Show all download options immediately after clicking Export, let user choose by clicking download button.
 - 2026-02-01 - [ui] Lesson learned: 3-column layouts don't work well on mobile or tablet. Prevention: Use single-column or max 2-column layout with stacked sections for mobile.
