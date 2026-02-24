@@ -427,17 +427,20 @@ if shared_calendars:
                 
                 with col2:
                     if st.button("Use This", key=f"use_{calendar.id}", use_container_width=True):
-                        # Load this calendar's events into session
-                        loaded_calendar = shared_mgr.get_by_id(calendar.id, st.session_state.config.locations)
-                        if loaded_calendar:
-                            st.session_state.events = loaded_calendar.events
-                            st.session_state.edit_history = [(f"Loaded: {calendar.name}", loaded_calendar.events.copy())]
-                            st.session_state.show_export = False
-                            st.session_state.show_share_form = False
-                            st.toast(f"✓ Loaded {calendar.name}")
-                            st.rerun()
-                        else:
-                            st.error("Failed to load calendar")
+                        try:
+                            # Load this calendar's events into session
+                            loaded_calendar = shared_mgr.get_by_id(calendar.id, st.session_state.config.locations)
+                            if loaded_calendar and loaded_calendar.events:
+                                st.session_state.events = loaded_calendar.events
+                                st.session_state.edit_history = [(f"Loaded: {calendar.name}", loaded_calendar.events.copy())]
+                                st.session_state.show_export = False
+                                st.session_state.show_share_form = False
+                                st.toast(f"✓ Loaded {calendar.name}")
+                                st.rerun()
+                            else:
+                                st.error("Calendar has no events or failed to load")
+                        except Exception as e:
+                            st.error(f"Failed to load calendar: {str(e)}")
                 
                 st.divider()
 
@@ -552,14 +555,17 @@ if st.session_state.events:
             
             with col_save:
                 if st.button("✓ Share", type="primary", use_container_width=True, disabled=not share_name):
-                    try:
-                        shared_calendar = shared_mgr.save(share_name, share_desc, events)
-                        st.success(f"✓ Shared as: {share_name}")
-                        st.session_state.show_share_form = False
-                        st.balloons()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to share: {str(e)}")
+                    if not events or len(events) == 0:
+                        st.error("Cannot share empty calendar")
+                    else:
+                        try:
+                            shared_calendar = shared_mgr.save(share_name, share_desc, events)
+                            st.success(f"✓ Shared as: {share_name}")
+                            st.session_state.show_share_form = False
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to share: {str(e)}")
             
             with col_cancel:
                 if st.button("Cancel", use_container_width=True):
