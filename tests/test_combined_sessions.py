@@ -1,7 +1,4 @@
-"""
-Test combined swim+dryland session extension (30-minute rule)
-Now handled by AI in the extraction phase (hybrid approach)
-"""
+"""Test combined swim+dryland session handling rules."""
 
 import os
 import sys
@@ -25,11 +22,11 @@ TEST_SCHEDULE = """
 2/10 周二 6~7:30pm 下水、7:30~8pm 陆上拉伸
 """
 
-def test_combined_session_extension():
-    """Test that combined sessions without separate times get extended by 30 minutes"""
+def test_combined_session_handling():
+    """Test combined session rules for single-range and split-range inputs."""
     
     print("="*80)
-    print("Testing Combined Session 30-Minute Extension")
+    print("Testing Combined Session Handling")
     print("="*80)
     
     # 1. Get API key
@@ -37,7 +34,7 @@ def test_combined_session_extension():
     if not api_key:
         print("❌ GEMINI_API_KEY not found in environment")
         return False
-    print(f"✓ API key loaded: {api_key[:20]}...")
+    print("✓ API key loaded")
     
     # 2. Load config
     config_manager = ConfigManager()
@@ -87,23 +84,21 @@ def test_combined_session_extension():
         print(f"❌ FAIL: Expected 2 events, got {len(events)}")
         return False
     
-    # Event 1: 2/9 周一 5~6:30 下水+陆上拉伸 → should be extended to 7:00pm
+    # Event 1: 2/9 周一 5~6:30 下水+陆上拉伸
+    # Rule: single time range should be used exactly (no auto-extension)
     event1 = events[0]
-    expected_duration_1 = 2.0  # 5:00-7:00 = 2 hours
+    expected_duration_1 = 1.5  # 5:00-6:30
     actual_duration_1 = (event1.end_time - event1.start_time).total_seconds() / 3600
     
     if abs(actual_duration_1 - expected_duration_1) < 0.1:
-        print(f"✓ Event 1: Extended correctly (5:00-7:00, {actual_duration_1:.1f}h)")
+        print(f"✓ Event 1: Single-range time preserved ({actual_duration_1:.1f}h)")
     else:
         print(f"❌ Event 1: Expected {expected_duration_1}h, got {actual_duration_1:.1f}h")
         return False
     
     # Check if extension note was added
-    if event1.notes and "30" in event1.notes:
-        print(f"✓ Event 1: Has note about extended time")
-    else:
-        # Note: AI might not add a note, it just extends the time correctly
-        print(f"ℹ Event 1: No extension note (AI handles semantically)")
+    if event1.notes:
+        print(f"ℹ Event 1 notes: {event1.notes}")
     
     # Event 2: 2/10 周二 6~7:30pm 下水、7:30~8pm 陆上拉伸 → should NOT be extended (has separate times)
     event2 = events[1]
@@ -118,10 +113,10 @@ def test_combined_session_extension():
         return False
     
     print("\n" + "="*80)
-    print("✅ TEST PASSED - Combined session extension works correctly!")
+    print("✅ TEST PASSED - Combined session handling works correctly!")
     print("="*80)
     return True
 
 if __name__ == "__main__":
-    success = test_combined_session_extension()
+    success = test_combined_session_handling()
     sys.exit(0 if success else 1)

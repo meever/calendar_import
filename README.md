@@ -5,7 +5,7 @@
 🎯 **Perfect for**: Swim teams, coaches, parents managing practice schedules  
 🤖 **Powered by**: Google Gemini 2.5 Flash (auto-updates)  
 📱 **Mobile-friendly**: Works on desktop, tablet, and phone  
-🌐 **Network-ready**: Access from any device on your local network
+🔒 **Local-first**: Runs on localhost by default
 
 ---
 
@@ -16,7 +16,7 @@
 - **📤 Share Your Calendars** - Save calendars with names for others to use
 - **📊 Smart Session Merging** - Combines underwater + dryland into single events
 - **✏️ AI-Powered Editing** - Modify events with natural language instructions
-- **📅 Multiple Formats** - Export to iOS (.ics), Google Calendar (.csv), Outlook (.csv)
+- **📅 One-Click Downloads** - Export as iCalendar (.ics) or ZIP package (.zip)
 - **🔒 Secure & Private** - API key never exposed, local network only
 - **🏗️ Professional Architecture** - Modular, tested, production-ready
 
@@ -27,7 +27,7 @@
 ### Windows Desktop Launcher (Easiest)
 
 1. **Double-click**: `Start Swimming Calendar.bat` on your desktop
-2. **Access**: http://localhost:8501 or http://192.168.1.10:8501
+2. **Access**: http://localhost:8501
 3. **Done!** App runs automatically
 
 See **[docs/QUICKSTART.md](docs/QUICKSTART.md)** for details.
@@ -66,18 +66,16 @@ cp .env.example .env    # Mac/Linux
 
 **Access**:
 - This computer: http://localhost:8501
-- From phone/tablet: http://192.168.1.10:8501 (same WiFi)
 
 ---
 
 ## 📖 How to Use
 
-### 1. Browse Shared Calendars (Optional)
-- Click **"📚 Browse Shared Calendars"** to see calendars shared by others
-- Click **"Use This"** on any calendar to load its events directly
-- No need to paste original text!
+### 1. Use the Tabs
+- **🆕 Create**: paste schedule → extract → edit with AI → review → export
+- **📚 Use Shared**: pick a shared calendar → review → edit with AI → export
 
-### 2. Input Schedule
+### 3. Input Schedule Example
 Paste your unstructured schedule text. Example:
 
 ```
@@ -86,16 +84,12 @@ Paste your unstructured schedule text. Example:
 1/31 周六 6-7:30pm 下水 @ Brandeis
 ```
 
-### 3. Review & Edit Events
-- See extracted events in a weekly calendar view
-- Use **"✏️ Edit with AI"** to modify events with natural language
-  - Examples: "Delete the Saturday event", "Move Friday to 5:30pm"
-- Check locations, times, dates
-
 ### 4. Export
-Choose your format:
+Click **"📥 Export"** to show download options:
 - **📅 iCalendar (.ics)** - Works with iOS, Mac, Outlook, most apps
 - **📦 ZIP (.zip)** - Contains .ics file for iOS Files app
+
+In **📚 Use Shared**, selecting and loading a shared calendar opens these same download options and shows which shared calendar is being used.
 
 ### 5. Share (Optional)
 - Click **"📤 Share This Calendar"** after exporting
@@ -116,7 +110,7 @@ calendar_import/
 │   ├── config_manager.py     # Configuration persistence
 │   ├── extractor.py          # AI extraction via Gemini
 │   ├── rules_engine.py       # Business logic & validation
-│   └── calendar_exporter.py  # Multi-format export
+│   └── calendar_exporter.py  # Calendar export utilities
 ├── config.json               # Persistent configuration (auto-generated)
 ├── .env                      # API key (create this!)
 ├── requirements.txt          # Python dependencies
@@ -142,11 +136,9 @@ calendar_import/
 - **Rule 3**: Weekend events → Brandeis (default)
 - Event validation, deduplication, sorting
 
-**`calendar_exporter.py`** - Multi-format export
-- ICS (universal)
-- Google Calendar CSV
-- Outlook CSV
-- Extensible for new formats
+**`calendar_exporter.py`** - Export services
+- ICS generation (iOS-compatible)
+- ZIP packaging for safer mobile download flow
 
 ---
 
@@ -202,17 +194,34 @@ python tests/test_api.py && python tests/test_extraction.py && python tests/test
    - Lists available models
    - Tests basic API connectivity
 
-2. **Event Extraction** (`tests/test_extraction.py`)
+1. **Event Extraction** (`tests/test_extraction.py`)
    - Tests full extraction pipeline with real Chinese/English schedule
    - Validates event extraction and merging
    - Checks location assignment rules
    - Verifies business logic
 
-3. **End-to-End Test** (`tests/test_e2e.py`)
+1. **Combined Sessions** (`tests/test_combined_sessions.py`)
+   - Validates underwater + dryland merge rules
+   - Verifies duration/combining behavior
+
+1. **ICS Encoding** (`tests/test_ics_encoding.py`)
+   - Validates iOS-friendly ICS formatting
+   - Ensures encoding and calendar headers are correct
+
+1. **ICS ZIP** (`tests/test_ics_zip.py`)
+   - Validates ZIP package generation for .ics export
+
+1. **End-to-End Test** (`tests/test_e2e.py`)
    - Complete workflow with real schedule
    - Validates overlapping event merging
    - Checks rest day handling
    - Verifies all business rules
+
+1. **Shared Calendar CRUD** (`tests/test_shared_calendars.py`)
+   - Verifies save/list/load/delete flows for shared calendars
+
+1. **Shared Calendar E2E** (`tests/test_shared_calendar_e2e.py`)
+   - Verifies browse → use → export-ready workflow
 
 ### Test Case (Preserved)
 
@@ -313,10 +322,10 @@ All support Python apps. Add `GEMINI_API_KEY` environment variable.
 | Document | Description |
 |----------|-------------|
 | **[QUICKSTART.md](docs/QUICKSTART.md)** | Desktop launcher & quick access guide |
-| **[LINUX_DEPLOYMENT.md](docs/LINUX_DEPLOYMENT.md)** | Deploy to Linux servers |
-| **[SECURITY.md](docs/SECURITY.md)** | API key & network security details |
+| **[SHARED_CALENDAR_GUIDE.md](docs/SHARED_CALENDAR_GUIDE.md)** | Shared calendar library workflow |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Common issues & solutions |
 | **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Cloud deployment (Streamlit/Docker) |
+| **[NOTES_EXTRACTION.md](docs/NOTES_EXTRACTION.md)** | Original-text extraction notes |
 
 ---
 
@@ -327,7 +336,7 @@ All support Python apps. Add `GEMINI_API_KEY` environment variable.
 ```json
 {
   "gemini_model": "gemini-flash-latest",  // Auto-updates to newest
-  "host": "0.0.0.0",                      // Network access enabled
+  "host": "127.0.0.1",                    // Localhost only
   "port": 8501,
   "timezone": "America/New_York",
   "locations": { ... }
@@ -346,11 +355,9 @@ All support Python apps. Add `GEMINI_API_KEY` environment variable.
 ## 🔒 Security & Privacy
 
 - **API key**: Stored in `.env` (gitignored, never committed)
-- **Network**: Accessible from local network only (192.168.x.x)
+- **Network**: Runs on localhost by default (`127.0.0.1`)
 - **No cloud storage**: All processing local to your instance
 - **Open source**: Audit the code yourself
-
-See **[docs/SECURITY.md](docs/SECURITY.md)** for detailed security information.
 
 ---
 
@@ -371,7 +378,6 @@ pandas           # Data handling
 
 **Quick fixes**:
 - **API key not found**: Check `.env` file exists with `GEMINI_API_KEY=...`
-- **Can't access from phone**: Run `.\setup_firewall.ps1` as Administrator
 - **Tests fail**: Ensure `.env` has valid API key
 - **Wrong timezone**: Edit `config.json` → `"timezone": "Your/Timezone"`
 

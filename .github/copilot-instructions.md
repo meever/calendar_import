@@ -350,6 +350,8 @@ git push
 - 2026-01-31 - [cleanup] Lesson learned: Stale debug docs/tests create confusion. Prevention: Remove or archive obsolete troubleshooting assets after fixes land.
 
 ### UI/UX Design
+- 2026-02-24 - [mobile] Lesson learned: A two-column layout made key actions harder to discover on iPhone screens. Prevention: Use clear, short tab labels for primary workflows (Create vs Use Shared) so users can switch modes reliably on mobile.
+- 2026-02-24 - [ui] Lesson learned: Cache controls in the main app added noise and confused the primary workflow. Prevention: Keep only shared-calendar management in UI and place browse/input/edit next to calendar/export in a two-panel layout.
 - 2026-02-24 - [feature] Lesson learned: Shared calendar library needed to be separate from anonymous cache to support named/browsable calendars. Prevention: When adding social/sharing features, create dedicated storage with metadata (name, description, timestamps).
 - 2026-02-01 - [ui] Lesson learned: Wide layout (layout="wide") looks sparse on large monitors and cramped on mobile. Prevention: Use layout="centered" with max-width CSS for consistent readability.
 - 2026-02-01 - [ui] Lesson learned: Multi-step export (select format → click export → download) adds friction. Prevention: Show all download options immediately after clicking Export, let user choose by clicking download button.

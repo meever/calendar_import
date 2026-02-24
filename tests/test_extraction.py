@@ -39,7 +39,7 @@ def test_extraction():
         print("❌ GEMINI_API_KEY not found in environment")
         return False
     
-    print(f"✓ API key loaded: {api_key[:20]}...")
+    print("✓ API key loaded")
     
     # Load config
     config_mgr = ConfigManager()

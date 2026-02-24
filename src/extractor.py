@@ -3,33 +3,28 @@ AI-powered event extraction from unstructured text
 """
 
 import json
-from typing import List, Dict
+from typing import List
+import time
 from google import genai
-from google.genai import types
 from datetime import datetime
 from models import Event, Config
-from cache_manager import ExtractionCache
 
 
 class EventExtractor:
     """Extracts structured events from unstructured text using Gemini AI"""
     
-    def __init__(self, api_key: str, config: Config, use_cache: bool = True):
+    def __init__(self, api_key: str, config: Config):
         """
         Initialize the extractor
         
         Args:
             api_key: Gemini API key
             config: Application configuration
-            use_cache: Whether to use caching (default True)
         """
         self.api_key = api_key
         self.config = config
         self.client = genai.Client(api_key=self.api_key)
         self.model = config.gemini_model  # Use model from config
-        self.use_cache = use_cache
-        self.cache = ExtractionCache() if use_cache else None
-        self.last_cache_hit = False  # Track if last extraction was from cache
     
     def _build_system_prompt(self) -> str:
         """Build system prompt with location context"""
@@ -113,6 +108,40 @@ IMPORTANT:
 - Extract all events except rest days
 - Be precise with times and dates
 """
+
+    def _generate_with_retry(self, prompt: str, max_attempts: int = 3) -> str:
+        """Generate model response with retry for transient API failures."""
+        last_error = None
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt
+                )
+                return response.text.strip()
+            except Exception as error:
+                last_error = error
+                error_text = str(error)
+                is_transient = (
+                    "503" in error_text
+                    or "UNAVAILABLE" in error_text
+                    or "429" in error_text
+                    or "quota" in error_text.lower()
+                    or "rate" in error_text.lower()
+                )
+
+                if attempt >= max_attempts or not is_transient:
+                    raise
+
+                wait_seconds = attempt * 3
+                print(f"Transient API error, retrying in {wait_seconds}s (attempt {attempt}/{max_attempts})")
+                time.sleep(wait_seconds)
+
+        if last_error:
+            raise last_error
+
+        raise RuntimeError("Failed to generate content")
     
     def extract(self, raw_text: str) -> List[Event]:
         """
@@ -132,25 +161,10 @@ IMPORTANT:
         if not raw_text or len(raw_text.strip()) < 10:
             raise ValueError("Input text is too short or empty")
         
-        # Check cache first
-        if self.use_cache and self.cache:
-            cached_events = self.cache.get(raw_text, self.config)
-            if cached_events is not None:
-                self.last_cache_hit = True
-                print(f"✓ Cache hit! Retrieved {len(cached_events)} events from cache")
-                return cached_events
-            else:
-                self.last_cache_hit = False
-        
-        # Cache miss - call AI
         prompt = f"{self._build_system_prompt()}\n\nEXTRACT EVENTS FROM THIS TEXT:\n{raw_text}"
         
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt
-            )
-            response_text = response.text.strip()
+            response_text = self._generate_with_retry(prompt)
             
             # Clean markdown code blocks if present
             if response_text.startswith("```json"):
@@ -225,11 +239,6 @@ IMPORTANT:
                     "Could not extract any valid calendar events from the input. "
                     "Please check that your text contains schedule information."
                 )
-            
-            # Store in cache for future use
-            if self.use_cache and self.cache:
-                self.cache.set(raw_text, self.config, events)
-                print(f"✓ Cached {len(events)} events for future use")
             
             return events
             

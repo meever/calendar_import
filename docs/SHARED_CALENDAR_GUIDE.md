@@ -9,6 +9,7 @@ The Shared Calendar Library feature allows users to save and share extracted cal
 ## 📚 How It Works
 
 ### Traditional Flow (Before)
+
 ```
 User 1: Paste schedule → Extract → Export
 User 2: Paste SAME schedule → Extract → Export
@@ -17,12 +18,13 @@ User 2: Paste SAME schedule → Extract → Export
 ```
 
 ### New Flow (With Shared Library)
+
 ```
 User 1: Paste schedule → Extract → Export → Share (with name)
                                                ↓
                                     [Shared Calendar Library]
                                                ↓
-User 2: Browse library → Use calendar → Export
+User 2: Open "Use Shared" tab → Pick calendar → Export
                 ⬆️
           No original text needed!
 ```
@@ -55,12 +57,14 @@ Create template schedules for different groups:
 ### Browsing Shared Calendars
 
 1. **Open the app** - Go to http://localhost:8501
-2. **Expand library** - Click "📚 Browse Shared Calendars (N available)"
-3. **Review options** - See calendar name, description, event count, date
-4. **Load calendar** - Click "Use This" on any calendar
+2. **Open shared tab** - Click "📚 Use Shared"
+3. **Pick a calendar** - Select one from the dropdown list
+4. **Load calendar** - Click "Use Selected"
 
 **What happens:**
 - Events load into the calendar view immediately
+- Export options (.ics and .zip) open immediately
+- The app shows which shared calendar is currently in use
 - You can edit, modify, or export them
 - No AI extraction needed (saves API quota!)
 
@@ -70,7 +74,7 @@ Create template schedules for different groups:
 
 1. **Extract events** - Paste schedule → Click "🤖 Extract Events"
 2. **Review & edit** - Check events, make any changes needed
-3. **Export first** - Click "📥 Export" to see download options
+3. **Open export options** - Click "📥 Export" to see download options
 4. **Share** - Click "📤 Share This Calendar"
 5. **Fill form:**
    - **Name** (required): Descriptive name, e.g., "MIT Team - March 2026"
@@ -102,6 +106,7 @@ Create template schedules for different groups:
 ## 🗂️ Storage Details
 
 ### File Structure
+
 ```
 shared_calendars/
 ├── a1b2c3d4.json   # Calendar 1
@@ -110,6 +115,7 @@ shared_calendars/
 ```
 
 ### JSON Format
+
 ```json
 {
   "id": "a1b2c3d4",
@@ -161,10 +167,10 @@ shared_calendars/
 
 ## 🎨 UI Design Principles
 
-### Browse Before Input
-- Library shown **before** schedule input
-- Encourages browsing before creating new
-- Reduces duplicate calendars
+### Two-Tab Workflow
+- **🆕 Create tab**: paste schedule, AI edit, review, export/share
+- **📚 Use Shared tab**: pick shared calendar, review, AI edit, export/share
+- Mobile-friendly tab labels make switching easy on iPhone screens
 
 ### Optional Workflow
 - Sharing is **opt-in** (not automatic)
@@ -172,7 +178,7 @@ shared_calendars/
 - No pressure to share private schedules
 
 ### Minimal Friction
-- One-click loading ("Use This")
+- One-tap loading ("Use Selected")
 - Simple form (name + optional description)
 - No login required for local use
 
@@ -278,7 +284,7 @@ A: No! Browsing and loading shared calendars is instant and free (no API calls).
 - No one has shared yet - be the first!
 - Check if `shared_calendars/` directory exists
 
-**"Use This" button doesn't work**
+**"Use Selected" button doesn't work**
 - Check browser console for errors
 - Verify events have valid location names
 - Reload the page

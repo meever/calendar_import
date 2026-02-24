@@ -17,12 +17,11 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from models import Location, Config, CalendarFormat, Event, SharedCalendar
+from models import CalendarFormat, Event
 from config_manager import ConfigManager
 from extractor import EventExtractor
 from rules_engine import RulesEngine
 from calendar_exporter import CalendarExporter
-from cache_manager import ExtractionCache
 from shared_calendar_manager import SharedCalendarManager
 
 
@@ -161,11 +160,17 @@ if 'api_key' not in st.session_state:
 if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
     st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
 
-if 'show_export' not in st.session_state:
-    st.session_state.show_export = False
+if 'show_export_create' not in st.session_state:
+    st.session_state.show_export_create = False
 
-if 'show_share_form' not in st.session_state:
-    st.session_state.show_share_form = False
+if 'show_export_shared' not in st.session_state:
+    st.session_state.show_export_shared = False
+
+if 'show_share_form_context' not in st.session_state:
+    st.session_state.show_share_form_context = None
+
+if 'selected_shared_calendar_name' not in st.session_state:
+    st.session_state.selected_shared_calendar_name = None
 
 
 # ============================================================================
@@ -192,21 +197,7 @@ with st.sidebar:
         st.error("✗ API Key Missing")
     
     st.divider()
-    
-    # Cache management
-    cache = ExtractionCache()
-    cache_stats = cache.get_stats()
-    
-    col1, col2 = st.columns(2)
-    col1.metric("Cache", cache_stats["entries"])
-    col2.metric("Hits", f"{cache_stats['hit_rate']:.0f}%")
-    
-    if st.button("Clear Cache", use_container_width=True):
-        cache.clear()
-        st.toast("Cache cleared!")
-    
-    st.divider()
-    
+
     # Shared calendar management
     shared_mgr_sidebar = SharedCalendarManager()
     shared_stats = shared_mgr_sidebar.get_stats()
@@ -402,230 +393,240 @@ Rules:
     return new_events
 
 
+def clear_current_events():
+    """Clear active events and related UI state."""
+    st.session_state.events = []
+    st.session_state.edit_history = []
+    st.session_state.selected_shared_calendar_name = None
+    st.session_state.show_export_create = False
+    st.session_state.show_export_shared = False
+    st.session_state.show_share_form_context = None
+
+
+def render_ai_edit_section(key_prefix: str):
+    """Render AI edit controls for current events."""
+    st.markdown("### ✏️ Edit with AI")
+    instructions = st.text_area(
+        "Edit instructions",
+        height=80,
+        placeholder="Examples:\n- Delete the Saturday event\n- Move Friday to 5:30-7:30pm\n- Change all locations to Brandeis",
+        label_visibility="collapsed",
+        key=f"edit_instructions_{key_prefix}"
+    )
+
+    if st.button("🤖 Apply Changes", disabled=not instructions, use_container_width=True, key=f"apply_changes_{key_prefix}"):
+        try:
+            with st.spinner("Applying edits..."):
+                new_events = apply_ai_edits(st.session_state.events, instructions)
+                rules_engine = RulesEngine(st.session_state.config)
+                new_events = rules_engine.sort_events(new_events)
+
+                st.session_state.events = new_events
+                st.session_state.edit_history.append((instructions, new_events.copy()))
+                st.rerun()
+        except Exception as e:
+            st.error(f"Edit failed: {str(e)}")
+
+    if len(st.session_state.edit_history) > 1:
+        with st.expander("📜 Edit History"):
+            for i, (action, _) in enumerate(st.session_state.edit_history):
+                st.caption(f"{i + 1}. {action[:50]}...")
+
+
+def render_export_section(events, key_prefix: str, show_shared_label: bool = False):
+    """Render export/download and share controls for current events."""
+    show_export_key = f"show_export_{key_prefix}"
+
+    if show_shared_label and st.session_state.selected_shared_calendar_name:
+        st.caption(f"Using shared calendar: {st.session_state.selected_shared_calendar_name}")
+
+    if st.button("📥 Export", type="primary", use_container_width=True, key=f"export_{key_prefix}"):
+        st.session_state[show_export_key] = True
+
+    if not st.session_state.get(show_export_key):
+        return
+
+    exporter = CalendarExporter(st.session_state.config)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    ics_content = exporter.export(events, CalendarFormat.ICS)
+    ics_data = ics_content.encode('utf-8-sig')
+    zip_data = exporter.export_to_ics_zip(events, ics_filename=f"swim_{timestamp}.ics")
+
+    dl1, dl2 = st.columns(2)
+    with dl1:
+        st.download_button(
+            "📄 .ics",
+            data=ics_data,
+            file_name=f"swim_{timestamp}.ics",
+            mime="text/calendar",
+            use_container_width=True,
+            key=f"download_ics_{key_prefix}"
+        )
+    with dl2:
+        st.download_button(
+            "📦 .zip",
+            data=zip_data,
+            file_name=f"swim_{timestamp}.zip",
+            mime="application/zip",
+            use_container_width=True,
+            key=f"download_zip_{key_prefix}"
+        )
+
+    st.divider()
+
+    if st.session_state.show_share_form_context != key_prefix:
+        if st.button("📤 Share This Calendar", use_container_width=True, key=f"share_open_{key_prefix}"):
+            st.session_state.show_share_form_context = key_prefix
+            st.rerun()
+
+    if st.session_state.show_share_form_context == key_prefix:
+        st.markdown("**Share with others:**")
+        st.caption("Make this calendar publicly available so others can use it without the original text")
+
+        share_name = st.text_input(
+            "Calendar Name*",
+            placeholder="e.g., MIT Team Practice Schedule - Feb 2026",
+            key=f"share_name_{key_prefix}"
+        )
+        share_desc = st.text_area(
+            "Description (optional)",
+            placeholder="Weekly practice schedule for MIT team, February 2026",
+            height=60,
+            key=f"share_desc_{key_prefix}"
+        )
+
+        col_save, col_cancel = st.columns(2)
+
+        with col_save:
+            if st.button("✓ Share", type="primary", use_container_width=True, disabled=not share_name, key=f"share_confirm_{key_prefix}"):
+                try:
+                    shared_mgr.save(share_name, share_desc, events)
+                    st.success(f"✓ Shared as: {share_name}")
+                    st.session_state.show_share_form_context = None
+                    st.balloons()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to share: {str(e)}")
+
+        with col_cancel:
+            if st.button("Cancel", use_container_width=True, key=f"share_cancel_{key_prefix}"):
+                st.session_state.show_share_form_context = None
+                st.rerun()
+
+
+def render_review_section(events):
+    """Render calendar review section for current events."""
+    st.markdown("### 📅 Review")
+    st.caption(f"{len(events)} event{'s' if len(events) != 1 else ''}")
+    render_calendar_view(events)
+
+
 # ============================================================================
 # MAIN APP
 # ============================================================================
 
 st.markdown("# 🏊 Swim Schedule Converter")
 
-# ============================================================================
-# SHARED CALENDAR LIBRARY (Browse before input)
-# ============================================================================
-
 shared_mgr = SharedCalendarManager()
-shared_calendars = shared_mgr.list_all()
 
-if shared_calendars:
-    with st.expander(f"📚 Browse Shared Calendars ({len(shared_calendars)} available)", expanded=False):
-        st.caption("These calendars were shared by other users. Click 'Use This' to load events directly.")
-        
-        for calendar in shared_calendars:
-            with st.container():
-                col1, col2 = st.columns([4, 1])
-                
-                with col1:
-                    st.markdown(f"**{calendar.name}**")
-                    if calendar.description:
-                        st.caption(calendar.description)
-                    st.caption(f"📅 {calendar.event_count} event{'s' if calendar.event_count != 1 else ''} • "
-                             f"🕒 {calendar.created_at.strftime('%m/%d/%Y')}")
-                
-                with col2:
-                    if st.button("Use This", key=f"use_{calendar.id}", use_container_width=True):
-                        try:
-                            # Load this calendar's events into session
-                            loaded_calendar = shared_mgr.get_by_id(calendar.id, st.session_state.config.locations)
-                            if loaded_calendar and loaded_calendar.events:
-                                st.session_state.events = loaded_calendar.events
-                                st.session_state.edit_history = [(f"Loaded: {calendar.name}", loaded_calendar.events.copy())]
-                                st.session_state.show_export = False
-                                st.session_state.show_share_form = False
-                                st.toast(f"✓ Loaded {calendar.name}")
-                                st.rerun()
-                            else:
-                                st.error("Calendar has no events or failed to load")
-                        except Exception as e:
-                            st.error(f"Failed to load calendar: {str(e)}")
-                
-                st.divider()
+tab_create, tab_shared = st.tabs(["🆕 Create", "📚 Use Shared"])
 
-# ============================================================================
-# STEP 1: INPUT
-# ============================================================================
-
-st.markdown("### 📝 Paste Schedule")
-
-schedule_text = st.text_area(
-    "Schedule",
-    height=150,
-    placeholder="""周四 1/29 下午 6-8 下水+陆上 @ Regis
+with tab_create:
+    st.markdown("### 📝 Paste Schedule")
+    schedule_text = st.text_area(
+        "Schedule",
+        height=150,
+        placeholder="""周四 1/29 下午 6-8 下水+陆上 @ Regis
 周五 1/30 下午 5-7 下水
 周六 1/31 上午 9-11 @ Brandeis""",
-    label_visibility="collapsed",
-    key="schedule_input"
-)
-
-col1, col2 = st.columns([4, 1])
-
-with col1:
-    extract_disabled = not schedule_text or not st.session_state.api_key
-    if st.button("🤖 Extract Events", type="primary", use_container_width=True, disabled=extract_disabled):
-        try:
-            with st.spinner("Analyzing..."):
-                extractor = EventExtractor(
-                    api_key=st.session_state.api_key,
-                    config=st.session_state.config
-                )
-                events = extractor.extract(schedule_text)
-                
-                # Apply rules
-                rules_engine = RulesEngine(st.session_state.config)
-                events = rules_engine.apply_location_rules(events)
-                events = rules_engine.merge_overlapping_events(events)
-                events = rules_engine.deduplicate_events(events)
-                events = rules_engine.sort_events(events)
-                
-                # Ensure all events have summary
-                for event in events:
-                    if not event.summary:
-                        event.summary = "Swim Practice"
-                
-                st.session_state.events = events
-                st.session_state.edit_history = [("Initial extraction", events.copy())]
-                st.rerun()
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-
-with col2:
-    if st.button("Clear", use_container_width=True):
-        st.session_state.events = []
-        st.session_state.edit_history = []
-        st.rerun()
-
-st.divider()
-
-# ============================================================================
-# STEP 2: CALENDAR VIEW & EDITING
-# ============================================================================
-
-if st.session_state.events:
-    events = st.session_state.events
-    
-    # Header with export
-    col_title, col_export = st.columns([3, 1])
-    
-    with col_title:
-        st.markdown(f"### 📅 {len(events)} Event{'s' if len(events) != 1 else ''}")
-    
-    with col_export:
-        if st.button("📥 Export", type="primary", use_container_width=True):
-            st.session_state.show_export = True
-    
-    # Export section
-    if st.session_state.get('show_export'):
-        exporter = CalendarExporter(st.session_state.config)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
-        ics_content = exporter.export(events, CalendarFormat.ICS)
-        ics_data = ics_content.encode('utf-8-sig')
-        zip_data = exporter.export_to_ics_zip(events, ics_filename=f"swim_{timestamp}.ics")
-        
-        dl1, dl2 = st.columns(2)
-        with dl1:
-            st.download_button("📄 .ics", data=ics_data, 
-                             file_name=f"swim_{timestamp}.ics", mime="text/calendar",
-                             use_container_width=True)
-        with dl2:
-            st.download_button("📦 .zip", data=zip_data,
-                             file_name=f"swim_{timestamp}.zip", mime="application/zip", 
-                             use_container_width=True)
-        
-        # Share calendar option (after export)
-        st.divider()
-        
-        if not st.session_state.get('show_share_form'):
-            if st.button("📤 Share This Calendar", use_container_width=True):
-                st.session_state.show_share_form = True
-                st.rerun()
-        
-        if st.session_state.get('show_share_form'):
-            st.markdown("**Share with others:**")
-            st.caption("Make this calendar publicly available so others can use it without the original text")
-            
-            share_name = st.text_input("Calendar Name*", placeholder="e.g., MIT Team Practice Schedule - Feb 2026", key="share_name")
-            share_desc = st.text_area("Description (optional)", placeholder="Weekly practice schedule for MIT team, February 2026", 
-                                     height=60, key="share_desc")
-            
-            col_save, col_cancel = st.columns(2)
-            
-            with col_save:
-                if st.button("✓ Share", type="primary", use_container_width=True, disabled=not share_name):
-                    if not events or len(events) == 0:
-                        st.error("Cannot share empty calendar")
-                    else:
-                        try:
-                            shared_calendar = shared_mgr.save(share_name, share_desc, events)
-                            st.success(f"✓ Shared as: {share_name}")
-                            st.session_state.show_share_form = False
-                            st.balloons()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Failed to share: {str(e)}")
-            
-            with col_cancel:
-                if st.button("Cancel", use_container_width=True):
-                    st.session_state.show_share_form = False
-                    st.rerun()
-        
-        st.divider()
-    
-    # Calendar view
-    render_calendar_view(events)
-    
-    st.divider()
-    
-    # AI Edit section
-    st.markdown("### ✏️ Edit with AI")
-    st.caption("Describe changes in natural language")
-    
-    edit_instructions = st.text_area(
-        "Edit instructions",
-        height=80,
-        placeholder="Examples:\n- Delete the Saturday event\n- Move Friday to 5:30-7:30pm\n- Change all locations to Brandeis",
         label_visibility="collapsed",
-        key="edit_instructions"
+        key="schedule_input_create"
     )
-    
-    if st.button("🤖 Apply Changes", disabled=not edit_instructions, use_container_width=True):
-        try:
-            with st.spinner("Applying edits..."):
-                new_events = apply_ai_edits(st.session_state.events, edit_instructions)
-                
-                # Apply rules
-                rules_engine = RulesEngine(st.session_state.config)
-                new_events = rules_engine.sort_events(new_events)
-                
-                st.session_state.events = new_events
-                st.session_state.edit_history.append((edit_instructions, new_events.copy()))
-                st.toast(f"✓ Applied: {edit_instructions[:30]}...")
-                st.rerun()
-        except Exception as e:
-            st.error(f"Edit failed: {str(e)}")
-    
-    # Edit history
-    if len(st.session_state.edit_history) > 1:
-        with st.expander("📜 Edit History"):
-            for i, (action, _) in enumerate(st.session_state.edit_history):
-                st.caption(f"{i+1}. {action[:50]}...")
 
-else:
-    # Empty state
-    st.markdown("### 📅 Calendar")
-    st.info("👆 Paste your schedule and click **Extract Events**")
-    
-    with st.expander("Supported formats"):
-        st.markdown("""
-        **Chinese:** `周四 1/29 下午 6-8 下水 @ Regis`
-        
-        **English:** `Thu Jan 29 6-8pm @ Regis`
-        """)
+    action_col1, action_col2 = st.columns([4, 1])
+    with action_col1:
+        extract_disabled = not schedule_text or not st.session_state.api_key
+        if st.button("🤖 Extract Events", type="primary", use_container_width=True, disabled=extract_disabled, key="extract_create"):
+            try:
+                with st.spinner("Analyzing..."):
+                    extractor = EventExtractor(
+                        api_key=st.session_state.api_key,
+                        config=st.session_state.config
+                    )
+                    events = extractor.extract(schedule_text)
+
+                    rules_engine = RulesEngine(st.session_state.config)
+                    events = rules_engine.apply_location_rules(events)
+                    events = rules_engine.merge_overlapping_events(events)
+                    events = rules_engine.deduplicate_events(events)
+                    events = rules_engine.sort_events(events)
+
+                    for event in events:
+                        if not event.summary:
+                            event.summary = "Swim Practice"
+
+                    st.session_state.events = events
+                    st.session_state.edit_history = [("Initial extraction", events.copy())]
+                    st.session_state.selected_shared_calendar_name = None
+                    st.session_state.show_export_create = False
+                    st.session_state.show_export_shared = False
+                    st.session_state.show_share_form_context = None
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+
+    with action_col2:
+        if st.button("Clear", use_container_width=True, key="clear_create"):
+            clear_current_events()
+            st.rerun()
+
+    if st.session_state.events:
+        render_ai_edit_section("create")
+        render_review_section(st.session_state.events)
+        render_export_section(st.session_state.events, "create")
+    else:
+        st.info("Paste a schedule to create, review, and export a calendar.")
+
+with tab_shared:
+    st.markdown("### 📚 Pick Shared Calendar")
+    shared_calendars = shared_mgr.list_all()
+
+    if not shared_calendars:
+        st.info("No shared calendars yet.")
+    else:
+        calendar_options = {
+            f"{calendar.name} • {calendar.event_count} event{'s' if calendar.event_count != 1 else ''} • {calendar.created_at.strftime('%m/%d/%Y')}": calendar.id
+            for calendar in shared_calendars
+        }
+
+        selected_label = st.selectbox(
+            "Choose a shared calendar",
+            options=list(calendar_options.keys()),
+            key="shared_picker"
+        )
+
+        if st.button("Use Selected", type="primary", use_container_width=True, key="use_shared_selected"):
+            calendar_id = calendar_options[selected_label]
+            try:
+                loaded_calendar = shared_mgr.get_by_id(calendar_id, st.session_state.config.locations)
+                if loaded_calendar and loaded_calendar.events:
+                    st.session_state.events = loaded_calendar.events
+                    st.session_state.edit_history = [(f"Loaded: {loaded_calendar.name}", loaded_calendar.events.copy())]
+                    st.session_state.selected_shared_calendar_name = loaded_calendar.name
+                    st.session_state.show_export_shared = True
+                    st.session_state.show_export_create = False
+                    st.session_state.show_share_form_context = None
+                    st.toast(f"✓ Loaded {loaded_calendar.name}")
+                    st.rerun()
+                else:
+                    st.error("Calendar has no events or failed to load")
+            except Exception as e:
+                st.error(f"Failed to load calendar: {str(e)}")
+
+    if st.session_state.events:
+        render_review_section(st.session_state.events)
+        render_ai_edit_section("shared")
+        render_export_section(st.session_state.events, "shared", show_shared_label=True)
+    else:
+        st.info("Pick a shared calendar to review, edit, and export.")

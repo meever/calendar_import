@@ -23,16 +23,22 @@ if (-not $SkipTests) {
 # Step 2: Start the app
 Write-Host "Step 2: Starting Streamlit app...`n" -ForegroundColor Yellow
 
+if (Test-Path "D:/code/calendar_import/.venv/Scripts/python.exe") {
+    $python = "D:/code/calendar_import/.venv/Scripts/python.exe"
+} elseif (Test-Path "D:/code/calendar_import/venv/Scripts/python.exe") {
+    $python = "D:/code/calendar_import/venv/Scripts/python.exe"
+} else {
+    $python = "python"
+}
+
 # Stop any existing instances
 Get-Process | Where-Object {$_.ProcessName -like "*streamlit*" -or $_.ProcessName -like "*python*"} | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-# Start app on local network (0.0.0.0 - accessible from 192.168.x.x)
-$ipAddress = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -like "192.168.*"} | Select-Object -First 1).IPAddress
+# Start app on localhost only
 Write-Host "✅ Launching app..." -ForegroundColor Green
 Write-Host "   Local: http://localhost:8501" -ForegroundColor Cyan
-Write-Host "   Network: http://$ipAddress:8501" -ForegroundColor Cyan
-Write-Host "   🌐 Accessible from local network (192.168.x.x)" -ForegroundColor Yellow
+Write-Host "   🔒 Localhost only (127.0.0.1)" -ForegroundColor Yellow
 Write-Host "   Press Ctrl+C to stop`n" -ForegroundColor Gray
 
-& "D:/code/calendar_import/venv/Scripts/python.exe" -m streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+& $python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501

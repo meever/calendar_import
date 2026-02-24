@@ -1,6 +1,7 @@
 """Test script to verify Gemini API key and extraction"""
 
 import os
+import sys
 from dotenv import load_dotenv
 from google import genai
 
@@ -9,7 +10,11 @@ load_dotenv()
 
 # Get API key
 api_key = os.getenv('GEMINI_API_KEY')
-print(f"API Key loaded: {api_key[:20]}..." if api_key else "API Key: None")
+if api_key:
+    print("API key loaded")
+else:
+    print("API key missing")
+    sys.exit(1)
 
 # Configure and test
 try:
@@ -33,3 +38,4 @@ try:
     
 except Exception as e:
     print(f"\n❌ Error: {e}")
+    sys.exit(1)

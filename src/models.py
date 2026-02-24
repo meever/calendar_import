@@ -66,6 +66,8 @@ class Event:
             "location_name": self.location_name or (self.location.name if self.location else None),
             "location_address": self.location.address if self.location else None,
             "is_ambiguous": self.is_ambiguous,
+            "raw_text": self.raw_text,
+            "notes": self.notes,
             "day_type": self.day_type.value,
             "duration_minutes": self.duration_minutes
         }
@@ -84,7 +86,8 @@ class Event:
             location=locations.get(location_name) if location_name else None,
             location_name=location_name,
             is_ambiguous=data.get("is_ambiguous", False),
-            raw_text=data.get("raw_text")
+            raw_text=data.get("raw_text"),
+            notes=data.get("notes")
         )
 
 
@@ -97,9 +100,6 @@ class Config:
     default_weekend_location: Optional[str] = "Brandeis"
     default_event_title: str = "Swim Practice"  # Default title for events (AI provides this, fallback only)
     api_key: Optional[str] = None
-    gemini_model: str = "gemini-flash-latest"  # Auto-updates to newest flash model
-    host: str = "0.0.0.0"  # Accessible from local network (192.168.x.x)
-    port: int = 8501
     gemini_model: str = "gemini-flash-latest"  # Auto-updates to newest flash model
     host: str = "127.0.0.1"  # localhost only - not accessible from network
     port: int = 8501
