@@ -44,6 +44,7 @@ def test_extraction():
     # Load config
     config_mgr = ConfigManager()
     config = config_mgr.load()
+    config.gemini_model = "gemini-2.5-flash"
     print(f"✓ Config loaded with {len(config.locations)} locations")
     
     # Initialize extractor

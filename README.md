@@ -72,8 +72,9 @@ cp .env.example .env    # Mac/Linux
 ## 📖 How to Use
 
 ### 1. Use the Tabs
-- **🆕 Create**: paste schedule → extract → edit with AI → review → export
+- **🆕 Create New**: paste schedule → extract → edit with AI → review → export
 - **📚 Use Shared**: pick a shared calendar → review → edit with AI → export
+- **❓ How To**: quick steps and minimal examples for both workflows
 
 ### 3. Input Schedule Example
 Paste your unstructured schedule text. Example:

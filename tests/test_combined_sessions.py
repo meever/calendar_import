@@ -39,6 +39,7 @@ def test_combined_session_handling():
     # 2. Load config
     config_manager = ConfigManager()
     config = config_manager.get_config()
+    config.gemini_model = "gemini-2.5-flash"
     print(f"✓ Config loaded with {len(config.locations)} locations")
     
     # 3. Extract events

@@ -530,7 +530,7 @@ st.markdown("# 🏊 Swim Schedule Converter")
 
 shared_mgr = SharedCalendarManager()
 
-tab_create, tab_shared = st.tabs(["🆕 Create", "📚 Use Shared"])
+tab_create, tab_shared, tab_howto = st.tabs(["🆕 Create New", "📚 Use Shared", "❓ How To"])
 
 with tab_create:
     st.markdown("### 📝 Paste Schedule")
@@ -630,3 +630,22 @@ with tab_shared:
         render_export_section(st.session_state.events, "shared", show_shared_label=True)
     else:
         st.info("Pick a shared calendar to review, edit, and export.")
+
+with tab_howto:
+    st.markdown("### Quick Guide")
+    st.markdown("**Create New**")
+    st.markdown("1. Paste schedule text")
+    st.markdown("2. Click **🤖 Extract Events**")
+    st.markdown("3. (Optional) Edit with AI")
+    st.markdown("4. Review and export as .ics or .zip")
+
+    st.markdown("**Use Shared**")
+    st.markdown("1. Pick a shared calendar")
+    st.markdown("2. Click **Use Selected**")
+    st.markdown("3. Review, edit if needed, then export")
+
+    with st.expander("Minimal examples"):
+        st.markdown("**Create New input:**")
+        st.code("周四 1/29 下午 6-8 下水+陆上 @ Regis", language="text")
+        st.markdown("**AI edit instruction:**")
+        st.code("Move Friday to 5:30-7:30pm", language="text")

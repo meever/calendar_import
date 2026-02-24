@@ -165,6 +165,7 @@ def test_e2e():
     
     config_mgr = ConfigManager()
     config = config_mgr.load()
+    config.gemini_model = "gemini-2.5-flash"
     print(f"✓ Config loaded with {len(config.locations)} locations")
     
     # 2. Extract events
