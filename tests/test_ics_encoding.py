@@ -65,7 +65,7 @@ def test_ics_encoding():
         return False
     
     # Test 3: Check calendar properties
-    print("\n[3/4] Checking calendar properties...")
+    print("\n[3/5] Checking calendar properties...")
     if 'X-WR-CALNAME:Swimming Schedule' in ics_content:
         print("✓ PASS: Calendar name present")
     else:
@@ -84,8 +84,24 @@ def test_ics_encoding():
         print("✗ FAIL: X-WR-TIMEZONE missing")
         return False
     
-    # Test 4: Test file writing with UTF-8-BOM
-    print("\n[4/4] Testing file write with UTF-8-BOM...")
+    # Test 4: Check for DTSTAMP (RFC 5545 requirement)
+    print("\n[4/5] Checking DTSTAMP property (RFC 5545 requirement)...")
+    if 'DTSTAMP:' in ics_content:
+        print("✓ PASS: DTSTAMP present (required for iOS)")
+        # Verify it's in VEVENT section
+        import re
+        vevent_match = re.search(r'BEGIN:VEVENT.*?END:VEVENT', ics_content, re.DOTALL)
+        if vevent_match and 'DTSTAMP:' in vevent_match.group(0):
+            print("  ✓ DTSTAMP found in VEVENT section")
+        else:
+            print("  ✗ DTSTAMP not in VEVENT section")
+            return False
+    else:
+        print("✗ FAIL: DTSTAMP missing - iOS may reject this file")
+        return False
+    
+    # Test 5: Test file writing with UTF-8-BOM
+    print("\n[5/5] Testing file write with UTF-8-BOM...")
     test_file = Path(__file__).parent.parent / "output" / "test_ios.ics"
     exporter.export_to_ics([event], str(test_file))
     
