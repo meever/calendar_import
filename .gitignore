@@ -5,6 +5,7 @@
 # Ignore cache directory
 cache/
 *.cache
+shared_calendars/
 
 # Ignore Python cache
 __pycache__/
