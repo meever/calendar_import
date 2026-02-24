@@ -190,3 +190,43 @@ class Config:
         ))
         
         return config
+
+
+@dataclass
+class SharedCalendar:
+    """Represents a publicly shared calendar with name and description"""
+    id: str  # Unique identifier
+    name: str  # User-provided name
+    description: str  # User-provided description
+    events: List[Event]  # List of events in this calendar
+    created_at: datetime  # When this was shared
+    event_count: int = 0  # Number of events (denormalized for quick display)
+    
+    def __post_init__(self):
+        """Calculate event count after initialization"""
+        if self.event_count == 0:
+            self.event_count = len(self.events)
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "created_at": self.created_at.isoformat(),
+            "event_count": self.event_count,
+            "events": [event.to_dict() for event in self.events]
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict, locations: Dict[str, Location]) -> 'SharedCalendar':
+        """Create SharedCalendar from dictionary"""
+        events = [Event.from_dict(e, locations) for e in data["events"]]
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            description=data.get("description", ""),
+            events=events,
+            created_at=datetime.fromisoformat(data["created_at"]),
+            event_count=data.get("event_count", len(events))
+        )

@@ -17,12 +17,13 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from models import Location, Config, CalendarFormat, Event
+from models import Location, Config, CalendarFormat, Event, SharedCalendar
 from config_manager import ConfigManager
 from extractor import EventExtractor
 from rules_engine import RulesEngine
 from calendar_exporter import CalendarExporter
 from cache_manager import ExtractionCache
+from shared_calendar_manager import SharedCalendarManager
 
 
 # ============================================================================
@@ -160,6 +161,23 @@ if 'api_key' not in st.session_state:
 if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
     st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
 
+if 'show_export' not in st.session_state:
+    st.session_state.show_export = False
+
+if 'show_share_form' not in st.session_state:
+    st.session_state.show_share_form = False
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def truncate_text(text: str, max_length: int = 30) -> str:
+    """Truncate text with ellipsis if longer than max_length"""
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    return text
+
 
 # ============================================================================
 # SIDEBAR - Minimal
@@ -175,7 +193,7 @@ with st.sidebar:
     
     st.divider()
     
-    # Cache management only
+    # Cache management
     cache = ExtractionCache()
     cache_stats = cache.get_stats()
     
@@ -186,6 +204,27 @@ with st.sidebar:
     if st.button("Clear Cache", use_container_width=True):
         cache.clear()
         st.toast("Cache cleared!")
+    
+    st.divider()
+    
+    # Shared calendar management
+    shared_mgr_sidebar = SharedCalendarManager()
+    shared_stats = shared_mgr_sidebar.get_stats()
+    
+    col1, col2 = st.columns(2)
+    col1.metric("Shared", shared_stats["total_calendars"])
+    col2.metric("Size", f"{shared_stats['total_size_kb']:.1f}KB")
+    
+    if shared_stats["total_calendars"] > 0:
+        with st.expander("Manage Shared"):
+            shared_list = shared_mgr_sidebar.list_all()
+            for cal in shared_list:
+                col_name, col_del = st.columns([3, 1])
+                col_name.caption(truncate_text(cal.name, 30))
+                if col_del.button("🗑️", key=f"del_{cal.id}"):
+                    shared_mgr_sidebar.delete(cal.id)
+                    st.toast(f"Deleted {cal.name}")
+                    st.rerun()
 
 
 # ============================================================================
@@ -370,6 +409,47 @@ Rules:
 st.markdown("# 🏊 Swim Schedule Converter")
 
 # ============================================================================
+# SHARED CALENDAR LIBRARY (Browse before input)
+# ============================================================================
+
+shared_mgr = SharedCalendarManager()
+shared_calendars = shared_mgr.list_all()
+
+if shared_calendars:
+    with st.expander(f"📚 Browse Shared Calendars ({len(shared_calendars)} available)", expanded=False):
+        st.caption("These calendars were shared by other users. Click 'Use This' to load events directly.")
+        
+        for calendar in shared_calendars:
+            with st.container():
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    st.markdown(f"**{calendar.name}**")
+                    if calendar.description:
+                        st.caption(calendar.description)
+                    st.caption(f"📅 {calendar.event_count} event{'s' if calendar.event_count != 1 else ''} • "
+                             f"🕒 {calendar.created_at.strftime('%m/%d/%Y')}")
+                
+                with col2:
+                    if st.button("Use This", key=f"use_{calendar.id}", use_container_width=True):
+                        try:
+                            # Load this calendar's events into session
+                            loaded_calendar = shared_mgr.get_by_id(calendar.id, st.session_state.config.locations)
+                            if loaded_calendar and loaded_calendar.events:
+                                st.session_state.events = loaded_calendar.events
+                                st.session_state.edit_history = [(f"Loaded: {calendar.name}", loaded_calendar.events.copy())]
+                                st.session_state.show_export = False
+                                st.session_state.show_share_form = False
+                                st.toast(f"✓ Loaded {calendar.name}")
+                                st.rerun()
+                            else:
+                                st.error("Calendar has no events or failed to load")
+                        except Exception as e:
+                            st.error(f"Failed to load calendar: {str(e)}")
+                
+                st.divider()
+
+# ============================================================================
 # STEP 1: INPUT
 # ============================================================================
 
@@ -459,6 +539,44 @@ if st.session_state.events:
             st.download_button("📦 .zip", data=zip_data,
                              file_name=f"swim_{timestamp}.zip", mime="application/zip", 
                              use_container_width=True)
+        
+        # Share calendar option (after export)
+        st.divider()
+        
+        if not st.session_state.get('show_share_form'):
+            if st.button("📤 Share This Calendar", use_container_width=True):
+                st.session_state.show_share_form = True
+                st.rerun()
+        
+        if st.session_state.get('show_share_form'):
+            st.markdown("**Share with others:**")
+            st.caption("Make this calendar publicly available so others can use it without the original text")
+            
+            share_name = st.text_input("Calendar Name*", placeholder="e.g., MIT Team Practice Schedule - Feb 2026", key="share_name")
+            share_desc = st.text_area("Description (optional)", placeholder="Weekly practice schedule for MIT team, February 2026", 
+                                     height=60, key="share_desc")
+            
+            col_save, col_cancel = st.columns(2)
+            
+            with col_save:
+                if st.button("✓ Share", type="primary", use_container_width=True, disabled=not share_name):
+                    if not events or len(events) == 0:
+                        st.error("Cannot share empty calendar")
+                    else:
+                        try:
+                            shared_calendar = shared_mgr.save(share_name, share_desc, events)
+                            st.success(f"✓ Shared as: {share_name}")
+                            st.session_state.show_share_form = False
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to share: {str(e)}")
+            
+            with col_cancel:
+                if st.button("Cancel", use_container_width=True):
+                    st.session_state.show_share_form = False
+                    st.rerun()
+        
         st.divider()
     
     # Calendar view
