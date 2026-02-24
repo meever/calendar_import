@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict, List
 from enum import Enum
-import uuid
 
 
 class DayType(Enum):

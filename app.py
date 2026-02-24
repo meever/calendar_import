@@ -209,7 +209,7 @@ with st.sidebar:
             shared_list = shared_mgr_sidebar.list_all()
             for cal in shared_list:
                 col_name, col_del = st.columns([3, 1])
-                col_name.caption(cal.name[:30] + "..." if len(cal.name) > 30 else cal.name)
+                col_name.caption(truncate_text(cal.name, 30))
                 if col_del.button("🗑️", key=f"del_{cal.id}"):
                     shared_mgr_sidebar.delete(cal.id)
                     st.toast(f"Deleted {cal.name}")
@@ -219,6 +219,12 @@ with st.sidebar:
 # ============================================================================
 # CALENDAR VIEW - Weekly Grid
 # ============================================================================
+
+def truncate_text(text: str, max_length: int = 30) -> str:
+    """Truncate text with ellipsis if longer than max_length"""
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    return text
 
 def get_week_bounds(dates):
     """Get the Monday-Sunday bounds for all weeks containing events"""
