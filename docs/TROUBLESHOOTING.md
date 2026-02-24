@@ -67,12 +67,18 @@ Add explicit location mentions:
 
 ## ❌ iOS Calendar won't import .ics file
 
-**Solution:** Use ZIP download instead:
-1. Export as \"ZIP Package\"
-2. Save to iPhone Files app
-3. Extract and open individual .ics files
+**Status:** ✅ Fixed in latest version (DTSTAMP property added)
 
-**Alternative:** Email .ics file to yourself and open from Mail app.
+The exported .ics files now fully comply with RFC 5545 and should work correctly when:
+- Shared via iMessage
+- Shared via Email  
+- Downloaded from web
+- Opened from Files app
+
+**If still having issues:**
+- Make sure you're using the latest version
+- Try the ZIP download option (Export → ZIP Package)
+- Email the .ics file to yourself and open from Mail app
 
 ---
 
