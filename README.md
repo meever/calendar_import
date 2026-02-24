@@ -12,8 +12,10 @@
 ## ✨ Features
 
 - **🤖 AI Extraction** - Understands mixed Chinese/English schedules
-- **📚 Editable Knowledge Base** - Manage locations and rules via web UI
+- **📚 Shared Calendar Library** - Browse and use calendars shared by others
+- **📤 Share Your Calendars** - Save calendars with names for others to use
 - **📊 Smart Session Merging** - Combines underwater + dryland into single events
+- **✏️ AI-Powered Editing** - Modify events with natural language instructions
 - **📅 Multiple Formats** - Export to iOS (.ics), Google Calendar (.csv), Outlook (.csv)
 - **🔒 Secure & Private** - API key never exposed, local network only
 - **🏗️ Professional Architecture** - Modular, tested, production-ready
@@ -70,7 +72,12 @@ cp .env.example .env    # Mac/Linux
 
 ## 📖 How to Use
 
-### 1. Input Schedule
+### 1. Browse Shared Calendars (Optional)
+- Click **"📚 Browse Shared Calendars"** to see calendars shared by others
+- Click **"Use This"** on any calendar to load its events directly
+- No need to paste original text!
+
+### 2. Input Schedule
 Paste your unstructured schedule text. Example:
 
 ```
@@ -79,17 +86,21 @@ Paste your unstructured schedule text. Example:
 1/31 周六 6-7:30pm 下水 @ Brandeis
 ```
 
-### 2. Review Events
-- See extracted events in a clean table
+### 3. Review & Edit Events
+- See extracted events in a weekly calendar view
+- Use **"✏️ Edit with AI"** to modify events with natural language
+  - Examples: "Delete the Saturday event", "Move Friday to 5:30pm"
 - Check locations, times, dates
-- Edit any event if needed
-- Delete unwanted events
 
-### 3. Export
+### 4. Export
 Choose your format:
 - **📅 iCalendar (.ics)** - Works with iOS, Mac, Outlook, most apps
-- **📆 Google Calendar (.csv)** - Import to Google Calendar
-- **📧 Outlook (.csv)** - For Microsoft Outlook
+- **📦 ZIP (.zip)** - Contains .ics file for iOS Files app
+
+### 5. Share (Optional)
+- Click **"📤 Share This Calendar"** after exporting
+- Give it a name and description
+- Others can browse and use it without the original text!
 
 **iPhone note:** Mobile Safari may not show a direct download option for .ics files. If you can't save the file to Files, use the ZIP download option and unzip in Files.
 

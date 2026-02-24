@@ -182,7 +182,7 @@ with st.sidebar:
     
     st.divider()
     
-    # Cache management only
+    # Cache management
     cache = ExtractionCache()
     cache_stats = cache.get_stats()
     
@@ -193,6 +193,27 @@ with st.sidebar:
     if st.button("Clear Cache", use_container_width=True):
         cache.clear()
         st.toast("Cache cleared!")
+    
+    st.divider()
+    
+    # Shared calendar management
+    shared_mgr_sidebar = SharedCalendarManager()
+    shared_stats = shared_mgr_sidebar.get_stats()
+    
+    col1, col2 = st.columns(2)
+    col1.metric("Shared", shared_stats["total_calendars"])
+    col2.metric("Size", f"{shared_stats['total_size_kb']:.1f}KB")
+    
+    if shared_stats["total_calendars"] > 0:
+        with st.expander("Manage Shared"):
+            shared_list = shared_mgr_sidebar.list_all()
+            for cal in shared_list:
+                col_name, col_del = st.columns([3, 1])
+                col_name.caption(cal.name[:30] + "..." if len(cal.name) > 30 else cal.name)
+                if col_del.button("🗑️", key=f"del_{cal.id}"):
+                    shared_mgr_sidebar.delete(cal.id)
+                    st.toast(f"Deleted {cal.name}")
+                    st.rerun()
 
 
 # ============================================================================
