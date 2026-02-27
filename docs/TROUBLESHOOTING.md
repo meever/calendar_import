@@ -16,8 +16,8 @@
 **Verify API key works:**
 
 ```powershell
-python tests/test_api.py
-# Should show: ✓ API key loaded
+.\run_tests.ps1 -ApiOnly
+# Should pass without failures
 ```
 
 **Check `.env` format:**
@@ -93,7 +93,7 @@ The exported .ics files now fully comply with RFC 5545 and should work correctly
 
 ```powershell
 # Activate virtual environment
-.\venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
 # Verify installation
 pip list | Select-String streamlit
@@ -135,21 +135,23 @@ streamlit run app.py --server.port 8502
 **Tests failing:**
 
 ```powershell
-# Run specific test
-python tests/test_api.py
-python tests/test_extraction.py
+# API tests only
+.\run_tests.ps1 -ApiOnly
+
+# Non-API tests only (quota-safe)
+.\run_tests.ps1
 
 # Full test suite (wait 30s between runs)
-.\run_tests.ps1
+.\run_tests.ps1 -Full
 ```
 
 **Virtual environment issues:**
 
 ```powershell
 # Recreate venv
-Remove-Item venv -Recurse -Force
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+Remove-Item .venv -Recurse -Force
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
@@ -186,8 +188,8 @@ pip install -r requirements.txt
 # Look for red error messages
 
 # Test each component
-python tests/test_api.py      # API connection
-python tests/test_extraction.py  # Event extraction
+.\run_tests.ps1 -ApiOnly        # API flow
+.\run_tests.ps1                 # Non-API flow
 ```
 
 **Common solutions first:**

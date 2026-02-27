@@ -128,12 +128,12 @@ chmod 600 .env
 **Step 4: Setup Environment**
 ```bash
 # Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # Test
-python tests/test_api.py
+python -m pytest -m "api" tests
 ```
 
 **Step 5: Run App**
@@ -155,8 +155,8 @@ After=network.target
 Type=simple
 User=youruser
 WorkingDirectory=/home/youruser/swimming-schedule-converter
-Environment="PATH=/home/youruser/swimming-schedule-converter/venv/bin"
-ExecStart=/home/youruser/swimming-schedule-converter/venv/bin/streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+Environment="PATH=/home/youruser/swimming-schedule-converter/.venv/bin"
+ExecStart=/home/youruser/swimming-schedule-converter/.venv/bin/streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 Restart=always
 
 [Install]
@@ -268,7 +268,7 @@ streamlit run app.py --server.address 0.0.0.0
 **❌ "API key not valid"**
 ```bash
 # Test API key
-python tests/test_api.py
+python -m pytest -m "api" tests
 
 # Restart Streamlit
 # Ctrl+C → streamlit run app.py

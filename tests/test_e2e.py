@@ -1,19 +1,7 @@
-"""
-End-to-end test with real schedule and expected output validation
-"""
+"""End-to-end test with real schedule and expected output validation."""
 
-import os
-import sys
-from pathlib import Path
-from dotenv import load_dotenv
-from datetime import datetime, timezone
+import pytest
 
-# Setup - add parent directory to path
-load_dotenv()
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from models import Config, Location
-from config_manager import ConfigManager
 from extractor import EventExtractor
 from rules_engine import RulesEngine
 
@@ -149,140 +137,47 @@ EXPECTED_EVENTS = [
     },
 ]
 
-def test_e2e():
-    """End-to-end test with real schedule"""
-    
-    print("="*80)
-    print("End-to-End Test - Real Swimming Schedule")
-    print("="*80)
-    
-    # 1. Setup
-    api_key = os.getenv('GEMINI_API_KEY')
-    if not api_key:
-        print("❌ GEMINI_API_KEY not found")
-        return False
-    print(f"✓ API key loaded")
-    
-    config_mgr = ConfigManager()
-    config = config_mgr.load()
+@pytest.mark.api
+@pytest.mark.slow
+def test_e2e(api_key: str, config):
+    """End-to-end test with real schedule."""
     config.gemini_model = "gemini-2.5-flash"
-    print(f"✓ Config loaded with {len(config.locations)} locations")
-    
-    # 2. Extract events
-    try:
-        extractor = EventExtractor(api_key, config)
-        print("✓ EventExtractor initialized")
-        
-        events = extractor.extract(TEST_SCHEDULE)
-        print(f"✓ Extracted {len(events)} raw events")
-    except Exception as e:
-        print(f"❌ Extraction failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-    
-    # 3. Apply rules
+
+    extractor = EventExtractor(api_key, config)
+    events = extractor.extract(TEST_SCHEDULE)
+
     rules_engine = RulesEngine(config)
-    events = rules_engine.apply_location_rules(events)
-    events = rules_engine.merge_overlapping_events(events)  # Merge overlapping events
-    events = rules_engine.deduplicate_events(events)
-    events = rules_engine.sort_events(events)
-    warnings = rules_engine.validate_events(events)
-    
-    print(f"✓ Rules applied, {len(events)} events after processing")
-    
-    # 4. Display extracted events
-    print("\n" + "="*80)
-    print("EXTRACTED EVENTS:")
-    print("="*80)
-    for i, event in enumerate(events, 1):
-        location = event.location.name if event.location else event.location_name or "No location"
-        print(f"{i:2d}. {event.start_time.strftime('%Y-%m-%d %a %H:%M')}-{event.end_time.strftime('%H:%M')} @ {location:10s} - {event.summary}")
-        if event.raw_text and len(event.raw_text) < 150:
-            print(f"    Snippet: {event.raw_text}")
-        if event.notes:
-            # Show first line of notes (usually the "Combined X groups" line)
-            notes_first_line = event.notes.split('\n')[0]
-            print(f"    Notes: {notes_first_line}")
-    
-    # 5. Critical validations
-    print("\n" + "="*80)
-    print("CRITICAL VALIDATIONS:")
-    print("="*80)
-    
-    all_passed = True
-    
-    # Check: No event should be 2/6 (rest day)
+    events = rules_engine.sort_events(
+        rules_engine.deduplicate_events(
+            rules_engine.merge_overlapping_events(
+                rules_engine.apply_location_rules(events)
+            )
+        )
+    )
+
+    # Critical validations
     rest_day_events = [e for e in events if e.start_time.month == 2 and e.start_time.day == 6]
-    if rest_day_events:
-        print("❌ FAIL: Found events on 2/6 (rest day) - should be skipped")
-        all_passed = False
-    else:
-        print("✓ PASS: No events on 2/6 (rest day correctly skipped)")
-    
-    # Check: Events with both underwater and dryland should be combined
+    assert not rest_day_events
+
     combined_session_dates = ["2026-01-29", "2026-01-31", "2026-02-01", "2026-02-02", 
                                "2026-02-03", "2026-02-04", "2026-02-05", "2026-02-07", "2026-02-08"]
-    
-    print("\nChecking combined sessions (underwater + dryland):")
+
     for date_str in combined_session_dates:
         date_events = [e for e in events if e.start_time.strftime('%Y-%m-%d') == date_str]
-        
+
         # For dates with single session, check duration
         if date_str == "2026-01-29":  # 6-8pm
             event = next((e for e in date_events if e.start_time.hour == 18), None)
             if event:
                 duration_hours = (event.end_time - event.start_time).total_seconds() / 3600
-                if duration_hours >= 1.5 and duration_hours <= 2.5:
-                    print(f"  ✓ {date_str}: Single session {duration_hours:.1f} hours (underwater+dryland combined)")
-                else:
-                    print(f"  ❌ {date_str}: Duration {duration_hours:.1f}h - might be split sessions")
-                    all_passed = False
-    
-    # Check: Expected event count (approximate - AI may vary slightly)
+                assert 1.5 <= duration_hours <= 2.5
+
     min_expected = len(EXPECTED_EVENTS) - 2
     max_expected = len(EXPECTED_EVENTS) + 2
-    if min_expected <= len(events) <= max_expected:
-        print(f"\n✓ PASS: Event count {len(events)} in expected range ({min_expected}-{max_expected})")
-    else:
-        print(f"\n❌ FAIL: Event count {len(events)} outside expected range ({min_expected}-{max_expected})")
-        all_passed = False
-    
-    # Check: All events have locations
-    events_without_location = [e for e in events if not e.location and not e.location_name]
-    if events_without_location:
-        print(f"❌ FAIL: {len(events_without_location)} events without location")
-        all_passed = False
-    else:
-        print("✓ PASS: All events have locations assigned")
-    
-    # Check: No invalid time ranges
-    invalid_times = [e for e in events if e.start_time >= e.end_time]
-    if invalid_times:
-        print(f"❌ FAIL: {len(invalid_times)} events with invalid time ranges")
-        all_passed = False
-    else:
-        print("✓ PASS: All events have valid time ranges")
-    
-    # 6. Display warnings
-    if warnings:
-        print("\n" + "="*80)
-        print(f"WARNINGS ({len(warnings)}):")
-        print("="*80)
-        for warning in warnings:
-            print(f"  [{warning['severity']}] {warning['issue']} - Event {warning['event_index'] + 1}")
-    
-    # 7. Final result
-    print("\n" + "="*80)
-    if all_passed:
-        print("✅ END-TO-END TEST PASSED")
-        print("="*80)
-        return True
-    else:
-        print("❌ END-TO-END TEST FAILED - See errors above")
-        print("="*80)
-        return False
+    assert min_expected <= len(events) <= max_expected
 
-if __name__ == "__main__":
-    success = test_e2e()
-    sys.exit(0 if success else 1)
+    events_without_location = [e for e in events if not e.location and not e.location_name]
+    assert not events_without_location
+
+    invalid_times = [e for e in events if e.start_time >= e.end_time]
+    assert not invalid_times

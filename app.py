@@ -17,12 +17,14 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from models import CalendarFormat, Event
+from models import CalendarFormat
 from config_manager import ConfigManager
 from extractor import EventExtractor
 from rules_engine import RulesEngine
 from calendar_exporter import CalendarExporter
 from shared_calendar_manager import SharedCalendarManager
+from pipeline import process_schedule
+from settings import DEFAULT_EVENT_TITLE
 
 
 # ============================================================================
@@ -36,71 +38,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS
-st.markdown("""
-<style>
-    .main .block-container {
-        padding-top: 1.5rem;
-        max-width: 900px;
-    }
-    h1 { font-size: 1.8rem !important; margin-bottom: 0.5rem !important; }
-    hr { margin: 1rem 0; border: none; border-top: 1px solid rgba(255,255,255,0.1); }
-    
-    /* Calendar table styling */
-    .cal-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
-        margin: 0.5rem 0;
-    }
-    .cal-table th {
-        background: rgba(74, 158, 255, 0.2);
-        padding: 8px 4px;
-        text-align: center;
-        font-weight: 600;
-        border: 1px solid rgba(255,255,255,0.1);
-        min-width: 90px;
-    }
-    .cal-table td {
-        padding: 6px;
-        vertical-align: top;
-        border: 1px solid rgba(255,255,255,0.1);
-        min-height: 60px;
-        background: rgba(0,0,0,0.2);
-    }
-    .cal-date {
-        font-size: 0.75rem;
-        color: rgba(255,255,255,0.5);
-        margin-bottom: 4px;
-    }
-    .cal-event {
-        background: rgba(74, 158, 255, 0.25);
-        border-radius: 3px;
-        padding: 4px 6px;
-        margin: 2px 0;
-        font-size: 0.8rem;
-        line-height: 1.3;
-    }
-    .cal-time {
-        font-weight: 600;
-        color: #4A9EFF;
-    }
-    .cal-loc {
-        color: rgba(255,255,255,0.7);
-        font-size: 0.75rem;
-    }
-    .cal-empty {
-        color: rgba(255,255,255,0.2);
-        text-align: center;
-        padding: 20px 4px;
-    }
-    .location-footnote {
-        font-size: 0.8rem;
-        color: rgba(255,255,255,0.6);
-        margin-top: 0.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+def load_css() -> None:
+    """Load static app styles."""
+    css_path = Path(__file__).parent / "static" / "style.css"
+    css_content = css_path.read_text(encoding="utf-8")
+    st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
+
+
+load_css()
 
 
 # ============================================================================
@@ -143,34 +88,40 @@ if not check_password():
 # SESSION STATE
 # ============================================================================
 
-if 'config_manager' not in st.session_state:
-    st.session_state.config_manager = ConfigManager()
-    st.session_state.config = st.session_state.config_manager.load()
+def init_session_state() -> None:
+    """Initialize Streamlit session state keys used by the app."""
+    if 'config_manager' not in st.session_state:
+        st.session_state.config_manager = ConfigManager()
+        st.session_state.config = st.session_state.config_manager.load()
 
-if 'events' not in st.session_state:
-    st.session_state.events = []
+    if 'events' not in st.session_state:
+        st.session_state.events = []
 
-if 'edit_history' not in st.session_state:
-    st.session_state.edit_history = []  # Track edit iterations
+    if 'edit_history' not in st.session_state:
+        st.session_state.edit_history = []
 
-if 'api_key' not in st.session_state:
-    st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
+    if 'api_key' not in st.session_state:
+        st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
 
-# Check Streamlit secrets for API key
-if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
-    st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
+    if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
+        st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
 
-if 'show_export_create' not in st.session_state:
-    st.session_state.show_export_create = False
+    if 'show_export_create' not in st.session_state:
+        st.session_state.show_export_create = False
 
-if 'show_export_shared' not in st.session_state:
-    st.session_state.show_export_shared = False
+    if 'show_export_shared' not in st.session_state:
+        st.session_state.show_export_shared = False
 
-if 'show_share_form_context' not in st.session_state:
-    st.session_state.show_share_form_context = None
+    if 'show_share_form_context' not in st.session_state:
+        st.session_state.show_share_form_context = None
 
-if 'selected_shared_calendar_name' not in st.session_state:
-    st.session_state.selected_shared_calendar_name = None
+    if 'selected_shared_calendar_name' not in st.session_state:
+        st.session_state.selected_shared_calendar_name = None
+
+
+init_session_state()
+
+shared_mgr = SharedCalendarManager()
 
 
 # ============================================================================
@@ -199,8 +150,7 @@ with st.sidebar:
     st.divider()
 
     # Shared calendar management
-    shared_mgr_sidebar = SharedCalendarManager()
-    shared_stats = shared_mgr_sidebar.get_stats()
+    shared_stats = shared_mgr.get_stats()
     
     col1, col2 = st.columns(2)
     col1.metric("Shared", shared_stats["total_calendars"])
@@ -208,12 +158,12 @@ with st.sidebar:
     
     if shared_stats["total_calendars"] > 0:
         with st.expander("Manage Shared"):
-            shared_list = shared_mgr_sidebar.list_all()
+            shared_list = shared_mgr.list_all()
             for cal in shared_list:
                 col_name, col_del = st.columns([3, 1])
                 col_name.caption(truncate_text(cal.name, 30))
                 if col_del.button("🗑️", key=f"del_{cal.id}"):
-                    shared_mgr_sidebar.delete(cal.id)
+                    shared_mgr.delete(cal.id)
                     st.toast(f"Deleted {cal.name}")
                     st.rerun()
 
@@ -294,105 +244,6 @@ def render_calendar_view(events):
     st.markdown(html, unsafe_allow_html=True)
 
 
-# ============================================================================
-# AI EDIT FUNCTION
-# ============================================================================
-
-def apply_ai_edits(events, instructions):
-    """Send events and edit instructions to AI, return updated events"""
-    from google import genai
-    
-    # Convert events to simple format for AI
-    events_text = []
-    for i, event in enumerate(events, 1):
-        loc = event.location.name if event.location else "Unknown"
-        events_text.append(
-            f"{i}. {event.start_time.strftime('%a %m/%d %H:%M')}-{event.end_time.strftime('%H:%M')} @ {loc}"
-        )
-    
-    current_schedule = "\n".join(events_text)
-    
-    # Build locations context
-    locations_info = "\n".join([
-        f"- {name}: {loc.address}"
-        for name, loc in st.session_state.config.locations.items()
-    ])
-    
-    prompt = f"""You are a schedule editing assistant. Here is the current swimming schedule:
-
-{current_schedule}
-
-KNOWN LOCATIONS:
-{locations_info}
-
-USER'S EDIT REQUEST:
-{instructions}
-
-Apply the user's requested changes and return the COMPLETE updated schedule as JSON.
-Return ONLY valid JSON (no markdown, no explanations):
-
-{{
-  "events": [
-    {{
-      "start_time": "2026-01-29T18:00:00",
-      "end_time": "2026-01-29T20:00:00",
-      "summary": "Swim Practice",
-      "location_name": "Regis",
-      "is_ambiguous": false
-    }}
-  ]
-}}
-
-Rules:
-- Keep all events unless user asks to delete them
-- Use ISO 8601 format for times
-- Use exact location names from the list above
-- If summary is not specified, use "Swim Practice"
-"""
-    
-    client = genai.Client(api_key=st.session_state.api_key)
-    
-    response = client.models.generate_content(
-        model=st.session_state.config.gemini_model,
-        contents=prompt
-    )
-    
-    response_text = response.text.strip()
-    
-    # Clean markdown
-    if response_text.startswith("```json"):
-        response_text = response_text[7:]
-    if response_text.startswith("```"):
-        response_text = response_text[3:]
-    if response_text.endswith("```"):
-        response_text = response_text[:-3]
-    response_text = response_text.strip()
-    
-    import json
-    data = json.loads(response_text)
-    
-    events_data = data.get("events", data if isinstance(data, list) else [])
-    
-    # Convert to Event objects
-    new_events = []
-    for event_data in events_data:
-        event = Event(
-            start_time=datetime.fromisoformat(event_data["start_time"]),
-            end_time=datetime.fromisoformat(event_data["end_time"]),
-            summary=event_data.get("summary", "Swim Practice"),
-            location_name=event_data.get("location_name"),
-            is_ambiguous=event_data.get("is_ambiguous", False)
-        )
-        
-        # Map location
-        if event.location_name:
-            event.location = st.session_state.config.locations.get(event.location_name)
-        
-        new_events.append(event)
-    
-    return new_events
-
-
 def clear_current_events():
     """Clear active events and related UI state."""
     st.session_state.events = []
@@ -417,7 +268,11 @@ def render_ai_edit_section(key_prefix: str):
     if st.button("🤖 Apply Changes", disabled=not instructions, use_container_width=True, key=f"apply_changes_{key_prefix}"):
         try:
             with st.spinner("Applying edits..."):
-                new_events = apply_ai_edits(st.session_state.events, instructions)
+                extractor = EventExtractor(
+                    api_key=st.session_state.api_key,
+                    config=st.session_state.config
+                )
+                new_events = extractor.edit(st.session_state.events, instructions)
                 rules_engine = RulesEngine(st.session_state.config)
                 new_events = rules_engine.sort_events(new_events)
 
@@ -528,8 +383,6 @@ def render_review_section(events):
 
 st.markdown("# 🏊 Swim Schedule Converter")
 
-shared_mgr = SharedCalendarManager()
-
 tab_create, tab_shared, tab_howto = st.tabs(["🆕 Create New", "📚 Use Shared", "❓ How To"])
 
 with tab_create:
@@ -550,21 +403,15 @@ with tab_create:
         if st.button("🤖 Extract Events", type="primary", use_container_width=True, disabled=extract_disabled, key="extract_create"):
             try:
                 with st.spinner("Analyzing..."):
-                    extractor = EventExtractor(
+                    events = process_schedule(
+                        raw_text=schedule_text,
                         api_key=st.session_state.api_key,
-                        config=st.session_state.config
+                        config=st.session_state.config,
                     )
-                    events = extractor.extract(schedule_text)
-
-                    rules_engine = RulesEngine(st.session_state.config)
-                    events = rules_engine.apply_location_rules(events)
-                    events = rules_engine.merge_overlapping_events(events)
-                    events = rules_engine.deduplicate_events(events)
-                    events = rules_engine.sort_events(events)
 
                     for event in events:
                         if not event.summary:
-                            event.summary = "Swim Practice"
+                            event.summary = DEFAULT_EVENT_TITLE
 
                     st.session_state.events = events
                     st.session_state.edit_history = [("Initial extraction", events.copy())]

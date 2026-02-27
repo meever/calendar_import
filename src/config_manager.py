@@ -3,15 +3,20 @@ Configuration management with persistence
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 from models import Config
+from settings import DEFAULT_CONFIG_PATH
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigManager:
     """Manages application configuration with file persistence"""
     
-    def __init__(self, config_path: str = "config.json"):
+    def __init__(self, config_path: str = DEFAULT_CONFIG_PATH):
         """
         Initialize configuration manager
         
@@ -30,8 +35,8 @@ class ConfigManager:
                 self.config = Config.from_dict(data)
                 return self.config
             except Exception as e:
-                print(f"Warning: Failed to load config from {self.config_path}: {e}")
-                print("Using default configuration")
+                logger.warning("Failed to load config from %s: %s", self.config_path, e)
+                logger.warning("Using default configuration")
         
         # Create default config
         self.config = Config.get_default_config()
@@ -48,7 +53,7 @@ class ConfigManager:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config.to_dict(), f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to save config to {self.config_path}: {e}")
+            logger.warning("Failed to save config to %s: %s", self.config_path, e)
     
     def get_config(self) -> Config:
         """Get current configuration (load if not already loaded)"""

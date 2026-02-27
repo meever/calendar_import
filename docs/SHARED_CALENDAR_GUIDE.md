@@ -190,10 +190,10 @@ Run the test suite:
 
 ```bash
 # Test SharedCalendarManager
-python tests/test_shared_calendars.py
+python -m pytest tests/test_shared_calendars.py
 
 # Test complete workflow
-python tests/test_shared_calendar_e2e.py
+python -m pytest tests/test_shared_calendar_e2e.py
 ```
 
 **No API calls required** - These tests use pre-created events.

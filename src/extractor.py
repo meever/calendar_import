@@ -5,13 +5,24 @@ AI-powered event extraction from unstructured text
 import json
 from typing import List
 import time
+import logging
 from google import genai
 from datetime import datetime
 from models import Event, Config
+from settings import (
+    AI_INFERRED_FROM_SCHEDULE,
+    AI_MAX_RETRY_ATTEMPTS,
+    AI_MIN_INPUT_LENGTH,
+    AI_RETRY_WAIT_MULTIPLIER_SECONDS,
+    AI_TRANSIENT_ERROR_KEYWORDS,
+    current_schedule_year,
+)
 
 
 class EventExtractor:
     """Extracts structured events from unstructured text using Gemini AI"""
+
+    logger = logging.getLogger(__name__)
     
     def __init__(self, api_key: str, config: Config):
         """
@@ -32,6 +43,7 @@ class EventExtractor:
             f"- {loc.name}: {loc.address}"
             for loc in self.config.locations.values()
         ])
+        inferred_year = current_schedule_year()
         
         return f"""You are an expert at extracting structured swimming practice schedules from unstructured text.
 
@@ -104,12 +116,12 @@ Output: Single event 2026-01-31T18:00:00 to 2026-01-31T20:00:00, location "Brand
 
 IMPORTANT:
 - Use ISO 8601 format for dates/times (YYYY-MM-DDTHH:MM:SS)
-- Assume year is 2026 if not specified
+- Assume year is {inferred_year} if not specified
 - Extract all events except rest days
 - Be precise with times and dates
 """
 
-    def _generate_with_retry(self, prompt: str, max_attempts: int = 3) -> str:
+    def _generate_with_retry(self, prompt: str, max_attempts: int = AI_MAX_RETRY_ATTEMPTS) -> str:
         """Generate model response with retry for transient API failures."""
         last_error = None
 
@@ -124,24 +136,89 @@ IMPORTANT:
                 last_error = error
                 error_text = str(error)
                 is_transient = (
-                    "503" in error_text
-                    or "UNAVAILABLE" in error_text
-                    or "429" in error_text
-                    or "quota" in error_text.lower()
-                    or "rate" in error_text.lower()
+                    AI_TRANSIENT_ERROR_KEYWORDS[0] in error_text
+                    or AI_TRANSIENT_ERROR_KEYWORDS[1] in error_text
+                    or AI_TRANSIENT_ERROR_KEYWORDS[2] in error_text
+                    or AI_TRANSIENT_ERROR_KEYWORDS[3] in error_text.lower()
+                    or AI_TRANSIENT_ERROR_KEYWORDS[4] in error_text.lower()
                 )
 
                 if attempt >= max_attempts or not is_transient:
                     raise
 
-                wait_seconds = attempt * 3
-                print(f"Transient API error, retrying in {wait_seconds}s (attempt {attempt}/{max_attempts})")
+                wait_seconds = attempt * AI_RETRY_WAIT_MULTIPLIER_SECONDS
+                self.logger.warning(
+                    "Transient API error, retrying in %ss (attempt %s/%s)",
+                    wait_seconds,
+                    attempt,
+                    max_attempts,
+                )
                 time.sleep(wait_seconds)
 
         if last_error:
             raise last_error
 
         raise RuntimeError("Failed to generate content")
+
+    def _clean_response_text(self, response_text: str) -> str:
+        """Strip markdown code block wrappers from model response."""
+        cleaned = response_text.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        return cleaned.strip()
+
+    def _parse_events_from_response(self, response_text: str, fallback_summary: str) -> List[Event]:
+        """Parse model response JSON into Event objects."""
+        cleaned_text = self._clean_response_text(response_text)
+
+        try:
+            data = json.loads(cleaned_text)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"AI returned invalid JSON: {error}")
+
+        if isinstance(data, list):
+            events_data = data
+        elif isinstance(data, dict) and "events" in data:
+            events_data = data["events"]
+        else:
+            raise ValueError("AI response must be a list or dict with 'events' field")
+
+        parsed_events = []
+        for event_data in events_data:
+            try:
+                if "start_time" not in event_data or "end_time" not in event_data:
+                    continue
+
+                original_snippet = event_data.get("original_text")
+                if not original_snippet:
+                    original_snippet = AI_INFERRED_FROM_SCHEDULE
+
+                event = Event(
+                    start_time=datetime.fromisoformat(event_data["start_time"]),
+                    end_time=datetime.fromisoformat(event_data["end_time"]),
+                    summary=event_data.get("summary", fallback_summary),
+                    location_name=event_data.get("location_name"),
+                    is_ambiguous=event_data.get("is_ambiguous", False),
+                    raw_text=original_snippet,
+                    notes=event_data.get("notes")
+                )
+
+                if event.start_time >= event.end_time:
+                    continue
+
+                if event.location_name:
+                    event.location = self.config.locations.get(event.location_name)
+
+                parsed_events.append(event)
+            except Exception as error:
+                self.logger.warning("Failed to parse event: %s", error)
+                continue
+
+        return parsed_events
     
     def extract(self, raw_text: str) -> List[Event]:
         """
@@ -158,89 +235,27 @@ IMPORTANT:
             Exception: If API call fails or response cannot be parsed
         """
         # Input validation
-        if not raw_text or len(raw_text.strip()) < 10:
+        if not raw_text or len(raw_text.strip()) < AI_MIN_INPUT_LENGTH:
             raise ValueError("Input text is too short or empty")
         
         prompt = f"{self._build_system_prompt()}\n\nEXTRACT EVENTS FROM THIS TEXT:\n{raw_text}"
         
         try:
             response_text = self._generate_with_retry(prompt)
-            
-            # Clean markdown code blocks if present
-            if response_text.startswith("```json"):
-                response_text = response_text[7:]
-            if response_text.startswith("```"):
-                response_text = response_text[3:]
-            if response_text.endswith("```"):
-                response_text = response_text[:-3]
-            
-            response_text = response_text.strip()
-            
-            # Parse JSON
-            try:
-                data = json.loads(response_text)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"AI returned invalid JSON: {e}")
-            
-            # Handle both list and dict responses
-            if isinstance(data, list):
-                events_data = data
-            elif isinstance(data, dict) and "events" in data:
-                events_data = data["events"]
-            else:
-                raise ValueError("AI response must be a list or dict with 'events' field")
-            
-            # Check if any events were found
-            if not events_data or len(events_data) == 0:
+
+            parsed_events = self._parse_events_from_response(
+                response_text=response_text,
+                fallback_summary=self.config.default_event_title,
+            )
+
+            if not parsed_events:
                 raise ValueError(
                     "No calendar events found in the input text. "
                     "Please ensure your input contains schedule information with dates and times. "
                     "Supported formats: dates (1/29, 周四), times (6-8pm, 下午6-8), locations (@Regis)."
                 )
-            
-            # Convert to Event objects
-            events = []
-            for event_data in events_data:
-                try:
-                    # Validate required fields
-                    if "start_time" not in event_data or "end_time" not in event_data:
-                        continue
-                    
-                    # Get original text snippet from AI response, or mark as inferred
-                    original_snippet = event_data.get("original_text")
-                    if not original_snippet:
-                        original_snippet = "(Inferred from schedule)"
-                    
-                    event = Event(
-                        start_time=datetime.fromisoformat(event_data["start_time"]),
-                        end_time=datetime.fromisoformat(event_data["end_time"]),
-                        summary=event_data.get("summary", self.config.default_event_title),
-                        location_name=event_data.get("location_name"),
-                        is_ambiguous=event_data.get("is_ambiguous", False),
-                        raw_text=original_snippet
-                    )
-                    
-                    # Validate event times
-                    if event.start_time >= event.end_time:
-                        continue  # Skip invalid time ranges
-                    
-                    # Map location name to Location object if available
-                    if event.location_name:
-                        event.location = self.config.locations.get(event.location_name)
-                    
-                    events.append(event)
-                except Exception as e:
-                    print(f"Warning: Failed to parse event: {e}")
-                    continue
-            
-            # Final validation - ensure we got valid events
-            if not events or len(events) == 0:
-                raise ValueError(
-                    "Could not extract any valid calendar events from the input. "
-                    "Please check that your text contains schedule information."
-                )
-            
-            return events
+
+            return parsed_events
             
         except json.JSONDecodeError as e:
             raise ValueError(
@@ -252,3 +267,63 @@ IMPORTANT:
             raise
         except Exception as e:
             raise Exception(f"Failed to extract events: {e}")
+
+    def edit(self, events: List[Event], instructions: str) -> List[Event]:
+        """
+        Apply natural-language edits to existing events using Gemini.
+        """
+        events_text = []
+        for index, event in enumerate(events, start=1):
+            location_name = event.location.name if event.location else "Unknown"
+            events_text.append(
+                f"{index}. {event.start_time.strftime('%a %m/%d %H:%M')}-{event.end_time.strftime('%H:%M')} @ {location_name}"
+            )
+
+        current_schedule = "\n".join(events_text)
+        locations_info = "\n".join([
+            f"- {name}: {location.address}"
+            for name, location in self.config.locations.items()
+        ])
+
+        prompt = f"""You are a schedule editing assistant. Here is the current swimming schedule:
+
+{current_schedule}
+
+KNOWN LOCATIONS:
+{locations_info}
+
+USER'S EDIT REQUEST:
+{instructions}
+
+Apply the user's requested changes and return the COMPLETE updated schedule as JSON.
+Return ONLY valid JSON (no markdown, no explanations):
+
+{{
+  "events": [
+    {{
+      "start_time": "2026-01-29T18:00:00",
+      "end_time": "2026-01-29T20:00:00",
+            "summary": "{self.config.default_event_title}",
+      "location_name": "Regis",
+      "is_ambiguous": false
+    }}
+  ]
+}}
+
+Rules:
+- Keep all events unless user asks to delete them
+- Use ISO 8601 format for times
+- Use exact location names from the list above
+- If summary is not specified, use "{self.config.default_event_title}"
+"""
+
+        response_text = self._generate_with_retry(prompt)
+        edited_events = self._parse_events_from_response(
+            response_text=response_text,
+            fallback_summary=self.config.default_event_title,
+        )
+
+        if not edited_events:
+            raise ValueError("AI edit returned no valid events")
+
+        return edited_events

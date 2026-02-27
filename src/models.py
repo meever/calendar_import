@@ -6,6 +6,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict, List
 from enum import Enum
+from settings import (
+    DEFAULT_EVENT_TITLE,
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    DEFAULT_TIMEZONE,
+    DEFAULT_WEEKDAY_LOCATION,
+    DEFAULT_WEEKEND_LOCATION,
+)
 
 
 class DayType(Enum):
@@ -95,14 +104,14 @@ class Event:
 class Config:
     """Application configuration"""
     locations: Dict[str, Location] = field(default_factory=dict)
-    timezone: str = "America/New_York"
-    default_weekday_location: Optional[str] = "Regis"
-    default_weekend_location: Optional[str] = "Brandeis"
-    default_event_title: str = "Swim Practice"  # Default title for events (AI provides this, fallback only)
+    timezone: str = DEFAULT_TIMEZONE
+    default_weekday_location: Optional[str] = DEFAULT_WEEKDAY_LOCATION
+    default_weekend_location: Optional[str] = DEFAULT_WEEKEND_LOCATION
+    default_event_title: str = DEFAULT_EVENT_TITLE  # Default title for events (AI provides this, fallback only)
     api_key: Optional[str] = None
-    gemini_model: str = "gemini-flash-latest"  # Auto-updates to newest flash model
-    host: str = "127.0.0.1"  # localhost only - not accessible from network
-    port: int = 8501
+    gemini_model: str = DEFAULT_GEMINI_MODEL  # Auto-updates to newest flash model
+    host: str = DEFAULT_HOST  # localhost only - not accessible from network
+    port: int = DEFAULT_PORT
     
     def get_default_location(self, day_type: DayType) -> Optional[Location]:
         """Get default location for a given day type"""
@@ -137,6 +146,7 @@ class Config:
             "timezone": self.timezone,
             "default_weekday_location": self.default_weekday_location,
             "default_weekend_location": self.default_weekend_location,
+            "default_event_title": self.default_event_title,
             "gemini_model": self.gemini_model,
             "host": self.host,
             "port": self.port
@@ -146,12 +156,13 @@ class Config:
     def from_dict(cls, data: Dict) -> 'Config':
         """Create Config from dictionary"""
         config = cls(
-            timezone=data.get("timezone", "America/New_York"),
-            default_weekday_location=data.get("default_weekday_location", "Regis"),
-            default_weekend_location=data.get("default_weekend_location", "Brandeis"),
-            gemini_model=data.get("gemini_model", "gemini-flash-latest"),
-            host=data.get("host", "127.0.0.1"),
-            port=data.get("port", 8501)
+            timezone=data.get("timezone", DEFAULT_TIMEZONE),
+            default_weekday_location=data.get("default_weekday_location", DEFAULT_WEEKDAY_LOCATION),
+            default_weekend_location=data.get("default_weekend_location", DEFAULT_WEEKEND_LOCATION),
+            default_event_title=data.get("default_event_title", DEFAULT_EVENT_TITLE),
+            gemini_model=data.get("gemini_model", DEFAULT_GEMINI_MODEL),
+            host=data.get("host", DEFAULT_HOST),
+            port=data.get("port", DEFAULT_PORT)
         )
         
         # Load locations

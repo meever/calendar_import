@@ -42,8 +42,8 @@ cd swimming-schedule-converter
 
 **2. Create virtual environment**
 ```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
 **3. Install dependencies**
@@ -64,10 +64,13 @@ echo "GEMINI_API_KEY=your-api-key-here" > .env
 
 **6. Test setup**
 ```powershell
-# Test API connection
-python tests/test_api.py
+# Non-API checks (quota-safe)
+.\run_tests.ps1
 
-# Should show: ✓ API key loaded
+# API check
+.\run_tests.ps1 -ApiOnly
+
+# Should pass without failures
 ```
 
 **7. Run the app**
@@ -85,8 +88,8 @@ git clone https://github.com/your-username/swimming-schedule-converter.git
 cd swimming-schedule-converter
 
 # Virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -95,7 +98,7 @@ pip install -r requirements.txt
 echo "GEMINI_API_KEY=your-api-key-here" > .env
 
 # Test and run
-python tests/test_api.py
+python -m pytest -m "api" tests
 streamlit run app.py
 ```
 

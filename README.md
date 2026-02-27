@@ -38,13 +38,13 @@ See **[docs/QUICKSTART.md](docs/QUICKSTART.md)** for details.
 # 1. Clone and setup
 git clone <your-repo-url>
 cd calendar_import
-python -m venv venv
+python -m venv .venv
 
 # Windows
-.\venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
 # Mac/Linux
-source venv/bin/activate
+source .venv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -106,10 +106,14 @@ In **📚 Use Shared**, selecting and loading a shared calendar opens these same
 ```
 calendar_import/
 ├── app.py                    # Streamlit web interface
+├── static/
+│   └── style.css             # App styles
 ├── src/
 │   ├── models.py             # Data models (Event, Location, Config)
+│   ├── settings.py           # Major user/policy defaults (minimal surface)
 │   ├── config_manager.py     # Configuration persistence
 │   ├── extractor.py          # AI extraction via Gemini
+│   ├── pipeline.py           # Extract → rules orchestration
 │   ├── rules_engine.py       # Business logic & validation
 │   └── calendar_exporter.py  # Calendar export utilities
 ├── config.json               # Persistent configuration (auto-generated)
@@ -130,6 +134,15 @@ calendar_import/
 - Gemini 2.5 Flash integration
 - Context-aware prompting with location knowledge
 - JSON schema validation
+- AI-powered edit operations for existing schedules
+
+**`pipeline.py`** - Flow orchestration
+- Centralized extract → location rules → merge → dedupe → sort flow
+- Keeps UI layer thin and deterministic
+
+**`settings.py`** - Major settings surface
+- Centralizes user/policy-facing defaults (timezone, model, retry policy, export naming)
+- Avoids over-centralizing local presentation constants
 
 **`rules_engine.py`** - Business logic
 - **Rule 1**: Explicit location mentions override defaults
@@ -180,12 +193,16 @@ All configuration is saved to `config.json` automatically.
 
 ```powershell
 # Windows PowerShell
-.\run_tests.ps1
+.\run_tests.ps1          # non-API tests (default, quota-safe)
+.\run_tests.ps1 -ApiOnly # API-only tests
+.\run_tests.ps1 -Full    # full suite
 ```
 
 ```bash
 # Mac/Linux
-python tests/test_api.py && python tests/test_extraction.py && python tests/test_e2e.py
+python -m pytest -m "not api" tests
+python -m pytest -m "api" tests
+python -m pytest tests
 ```
 
 ### Test Suite Includes:
@@ -399,6 +416,43 @@ Contributions welcome! This is a well-architected codebase:
 - Type hints throughout
 - Modular design
 - Easy to extend
+
+### Versioning & Releases
+
+This project uses a simple file-based version (`VERSION`) and optional `bump2version` automation.
+
+Current release line:
+- `v1.0.0` = pre-renovation baseline
+- `v2.0.0` = modernization release
+
+Recommended release flow:
+
+```bash
+# install once (local dev)
+python -m pip install bump2version
+
+# patch/minor/major bump (updates VERSION, creates commit + tag)
+bump2version patch
+bump2version minor
+bump2version major
+
+# push commit and tag
+git push
+git push --tags
+```
+
+If you prefer manual tagging:
+
+```bash
+git tag v2.0.0
+git push origin v2.0.0
+```
+
+### CI/CD (GitHub Free Tier)
+
+- PR/push CI: `.github/workflows/ci.yml` runs non-API tests (`pytest -m "not api"`).
+- API tests: `.github/workflows/api-tests.yml` runs on manual trigger and nightly schedule.
+- Streamlit Cloud deploys automatically from `main` (set `GEMINI_API_KEY` in Streamlit secrets).
 
 ---
 

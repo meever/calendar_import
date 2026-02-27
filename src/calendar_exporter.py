@@ -10,6 +10,7 @@ import zipfile
 from ics import Calendar, Event as IcsEvent
 from zoneinfo import ZoneInfo
 from models import Event, Config, CalendarFormat
+from settings import CALENDAR_NAME_PREFIX, ICS_DEFAULT_FILENAME, ICS_METHOD
 
 
 class CalendarExporter:
@@ -74,7 +75,7 @@ class CalendarExporter:
         
         # Add iOS-friendly calendar headers (name, method, timezone)
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        calendar_name = f"Swimming Schedule {timestamp}"
+        calendar_name = f"{CALENDAR_NAME_PREFIX} {timestamp}"
         timezone_id = self.config.timezone
         ics_lines = ics_content.split('\n')
 
@@ -114,7 +115,7 @@ class CalendarExporter:
             insert_at = 0
 
         headers_to_insert = [
-            'METHOD:PUBLISH',
+            f'METHOD:{ICS_METHOD}',
             f'X-WR-CALNAME:{calendar_name}',
             f'NAME:{calendar_name}',
             f'X-WR-TIMEZONE:{timezone_id}'
@@ -259,7 +260,7 @@ class CalendarExporter:
             ZIP file bytes
         """
         if not ics_filename:
-            ics_filename = "swimming_schedule.ics"
+            ics_filename = ICS_DEFAULT_FILENAME
 
         ics_content = self.export_to_ics(events)
         ics_bytes = ics_content.encode("utf-8-sig")

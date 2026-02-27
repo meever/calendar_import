@@ -1,5 +1,10 @@
-# Run all tests for the swimming schedule converter
-# Exit on first failure
+# Run tests for the swimming schedule converter
+# Default: non-API tests only (quota-safe)
+
+param(
+    [switch]$Full,
+    [switch]$ApiOnly
+)
 
 Write-Host "`n=== Swimming Schedule Converter Test Suite ===" -ForegroundColor Cyan
 Write-Host "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n" -ForegroundColor Gray
@@ -12,84 +17,41 @@ if (Test-Path "D:/code/calendar_import/.venv/Scripts/python.exe") {
     $python = "python"
 }
 
-# Test 1: API Key Validation
-Write-Host "[1/8] Testing API Key..." -ForegroundColor Yellow
-& $python tests/test_api.py
+# Ensure pytest is available in the selected environment
+& $python -m pytest --version *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ API Key test failed!" -ForegroundColor Red
+    Write-Host "pytest not found in environment. Installing dependencies from requirements.txt..." -ForegroundColor Yellow
+    & $python -m pip install -r requirements.txt
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`n❌ Failed to install dependencies." -ForegroundColor Red
+        Write-Host "Run: $python -m pip install -r requirements.txt" -ForegroundColor Gray
+        exit 1
+    }
+
+    & $python -m pytest --version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`n❌ pytest is still unavailable after install." -ForegroundColor Red
+        Write-Host "Run: $python -m pip install pytest" -ForegroundColor Gray
+        exit 1
+    }
+}
+
+if ($ApiOnly) {
+    Write-Host "Running API tests only..." -ForegroundColor Yellow
+    & $python -m pytest -m "api" tests
+} elseif ($Full) {
+    Write-Host "Running full test suite (includes API tests)..." -ForegroundColor Yellow
+    & $python -m pytest tests
+} else {
+    Write-Host "Running non-API tests only (quota-safe default)..." -ForegroundColor Yellow
+    & $python -m pytest -m "not api" tests
+}
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "`n❌ Test run failed!" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "`n" + "="*60 + "`n"
-
-# Test 2: Event Extraction
-Write-Host "[2/8] Testing Event Extraction..." -ForegroundColor Yellow
-& $python tests/test_extraction.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ Event extraction test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n" + "="*60 + "`n"
-
-# Test 3: Combined Sessions Extension
-Write-Host "[3/8] Testing Combined Session Handling..." -ForegroundColor Yellow
-& $python tests/test_combined_sessions.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ Combined session test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n" + "="*60 + "`n"
-
-# Test 4: ICS Encoding (iOS Compatibility)
-Write-Host "[4/8] Testing ICS Encoding for iOS..." -ForegroundColor Yellow
-& $python tests/test_ics_encoding.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "\n❌ ICS encoding test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "\n" + "="*60 + "\n"
-
-# Test 5: ICS ZIP Packaging
-Write-Host "[5/8] Testing ICS ZIP Packaging..." -ForegroundColor Yellow
-& $python tests/test_ics_zip.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "\n❌ ICS ZIP test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "\n" + "="*60 + "\n"
-
-# Test 6: End-to-End Test
-Write-Host "[6/8] Running End-to-End Test..." -ForegroundColor Yellow
-& $python tests/test_e2e.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ End-to-end test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n" + "="*60 + "`n"
-
-# Test 7: Shared Calendars Unit
-Write-Host "[7/8] Testing Shared Calendar CRUD..." -ForegroundColor Yellow
-& $python tests/test_shared_calendars.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ Shared calendar CRUD test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n" + "="*60 + "`n"
-
-# Test 8: Shared Calendars E2E
-Write-Host "[8/8] Testing Shared Calendar Workflow E2E..." -ForegroundColor Yellow
-& $python tests/test_shared_calendar_e2e.py
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n❌ Shared calendar E2E test failed!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "`n" + "="*60
-Write-Host "`n✅ ALL TESTS PASSED!" -ForegroundColor Green
-Write-Host "Ready to deploy.`n" -ForegroundColor Gray
+Write-Host ("`n" + ("=" * 60))
+Write-Host "`n✅ TESTS PASSED!" -ForegroundColor Green
+Write-Host "Use -Full to include API tests, or -ApiOnly for API-only checks.`n" -ForegroundColor Gray

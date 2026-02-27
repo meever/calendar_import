@@ -3,8 +3,9 @@ Business rules engine for event processing
 """
 
 from typing import List, Dict
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from models import Event, Config, DayType
+from settings import AI_INFERRED_FROM_SCHEDULE
 
 
 class RulesEngine:
@@ -79,7 +80,6 @@ class RulesEngine:
                 })
             
             # Check if event is in the past
-            from datetime import datetime, timezone
             if event.start_time.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
                 issues.append({
                     "event_index": i,
@@ -163,11 +163,11 @@ class RulesEngine:
                 # Concatenate all original text snippets
                 merged_snippets = []
                 for e in overlapping:
-                    if e.raw_text and e.raw_text != "(Inferred from schedule)":
+                    if e.raw_text and e.raw_text != AI_INFERRED_FROM_SCHEDULE:
                         merged_snippets.append(e.raw_text.strip())
                 
                 # Join with separator if multiple snippets found
-                merged_raw_text = " | ".join(merged_snippets) if merged_snippets else "(Inferred from schedule)"
+                merged_raw_text = " | ".join(merged_snippets) if merged_snippets else AI_INFERRED_FROM_SCHEDULE
                 
                 # Create notes about merged groups
                 notes_parts = []

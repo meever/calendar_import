@@ -22,7 +22,7 @@
   "timezone": "America/New_York",
   "default_weekday_location": "Regis",
   "default_weekend_location": "Brandeis",
-  "default_event_title": "Tyler Swim Practice",
+  "default_event_title": "Swim Practice",
   "gemini_model": "gemini-flash-latest",
   "host": "127.0.0.1",
   "port": 8501

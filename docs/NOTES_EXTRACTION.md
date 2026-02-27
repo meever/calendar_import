@@ -123,7 +123,9 @@ All test suites verify snippet extraction:
 
 **Run Tests**:
 ```powershell
-.\run_tests.ps1
+.\run_tests.ps1 -ApiOnly
+# or full suite:
+.\run_tests.ps1 -Full
 ```
 
 ## Example Output

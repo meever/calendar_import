@@ -2,15 +2,10 @@
 Test ICS ZIP export for iOS Files compatibility
 """
 
-import sys
-from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import zipfile
 from io import BytesIO
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from models import Event, Location, Config
 from calendar_exporter import CalendarExporter
@@ -18,19 +13,15 @@ from calendar_exporter import CalendarExporter
 
 def test_ics_zip_export():
     """Test that ZIP contains an ICS with BOM, CRLF, and required headers"""
-    config = Config(
-        timezone="America/New_York",
-        locations=[
-            Location(name="Test Pool", address="123 Main St")
-        ]
-    )
+    config = Config(timezone="America/New_York")
+    config.add_location(Location(name="Test Pool", address="123 Main St"))
 
     tz = ZoneInfo("America/New_York")
     event = Event(
         summary="Test Practice",
         start_time=datetime(2026, 2, 15, 18, 0, tzinfo=tz),
         end_time=datetime(2026, 2, 15, 20, 0, tzinfo=tz),
-        location=config.locations[0],
+        location=config.locations["Test Pool"],
         raw_text="Test event"
     )
 
@@ -48,7 +39,3 @@ def test_ics_zip_export():
     assert "METHOD:PUBLISH" in ics_content, "ICS missing METHOD:PUBLISH"
     assert "X-WR-TIMEZONE:America/New_York" in ics_content, "ICS missing X-WR-TIMEZONE"
     assert "X-WR-CALNAME:Swimming Schedule" in ics_content, "ICS missing X-WR-CALNAME"
-
-
-if __name__ == "__main__":
-    test_ics_zip_export()

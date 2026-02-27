@@ -7,16 +7,21 @@ browse/export them without needing the original text.
 
 import json
 import uuid
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Dict
 from models import SharedCalendar, Event, Config
+from settings import DEFAULT_SHARED_CALENDARS_DIR, SHARED_CALENDAR_ID_LENGTH
+
+
+logger = logging.getLogger(__name__)
 
 
 class SharedCalendarManager:
     """Manages storage and retrieval of shared calendars"""
     
-    def __init__(self, storage_dir: str = "shared_calendars"):
+    def __init__(self, storage_dir: str = DEFAULT_SHARED_CALENDARS_DIR):
         """
         Initialize shared calendar manager
         
@@ -39,7 +44,7 @@ class SharedCalendarManager:
             SharedCalendar object with generated ID
         """
         # Generate unique ID
-        calendar_id = str(uuid.uuid4())[:8]
+        calendar_id = str(uuid.uuid4())[:SHARED_CALENDAR_ID_LENGTH]
         
         shared_calendar = SharedCalendar(
             id=calendar_id,
@@ -76,7 +81,7 @@ class SharedCalendarManager:
                 calendars.append(calendar)
                 
             except Exception as e:
-                print(f"Warning: Failed to load shared calendar {file_path.name}: {e}")
+                logger.warning("Failed to load shared calendar %s: %s", file_path.name, e)
                 continue
         
         # Sort by created_at, newest first
@@ -106,7 +111,7 @@ class SharedCalendarManager:
             return SharedCalendar.from_dict(data, locations)
         
         except Exception as e:
-            print(f"Warning: Failed to load shared calendar {calendar_id}: {e}")
+            logger.warning("Failed to load shared calendar %s: %s", calendar_id, e)
             return None
     
     def delete(self, calendar_id: str) -> bool:

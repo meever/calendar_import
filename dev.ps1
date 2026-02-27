@@ -17,7 +17,7 @@ if (-not $SkipTests) {
         exit 1
     }
     
-    Write-Host "`n" + "="*60 + "`n"
+    Write-Host ("`n" + ("=" * 60) + "`n")
 }
 
 # Step 2: Start the app

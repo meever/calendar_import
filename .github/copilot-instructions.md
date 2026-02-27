@@ -335,6 +335,10 @@ git push
 **📚 Living history of project insights - update after every task!**
 
 ### Testing & Performance
+- 2026-02-27 - [tests] Lesson learned: Full-suite output can include third-party deprecation noise from `google-genai` that does not reflect app regressions. Prevention: Add targeted `pytest` warning filters for known external warnings while keeping other warnings visible.
+- 2026-02-27 - [tooling] Lesson learned: PowerShell string multiplication formatting can print literal text if not parenthesized. Prevention: Use explicit grouped expressions for status banner rendering in scripts.
+- 2026-02-27 - [tooling] Lesson learned: Fresh virtual environments may miss pytest and block the new pytest-based runner. Prevention: Make `run_tests.ps1` bootstrap dependencies when pytest is missing.
+- 2026-02-27 - [tests] Lesson learned: Pytest migration exposed a data-model mismatch where a test passed list-based locations into Config. Prevention: Keep tests aligned with typed model contracts (dict locations) and sanity-check fixture construction during migrations.
 - 2026-02-01 - [api] Lesson learned: Free tier Gemini has 15 RPM limit, running full test suite repeatedly hits quota errors. Prevention: Wait 30+ seconds between full suite runs, use targeted single tests during development.
 - 2026-01-31 - [process] Lesson learned: Full test suites are slow mid-iteration. Prevention: Run only impacted tests during work, then run the full suite at the end.
 - 2026-01-31 - [process] Lesson learned: Manual runs can leak sensitive output. Prevention: Avoid printing or sharing secret values in logs or UI.
@@ -344,6 +348,10 @@ git push
 - 2026-01-31 - [ios] Lesson learned: iOS Safari may not offer direct downloads for .ics files. Prevention: Offer a ZIP download option for saving via Files.
 
 ### Documentation & Code Quality
+- 2026-02-27 - [docs] Lesson learned: Release/version process is easy to skip unless codified in-repo. Prevention: Keep a simple `VERSION` + `.bumpversion.cfg` flow and document tag/push steps in README.
+- 2026-02-27 - [docs] Lesson learned: Mixed `venv` and `.venv` examples in deployment docs can break copy-paste setup. Prevention: Keep environment-path examples consistent across quickstart, deployment, and service configs.
+- 2026-02-27 - [docs] Lesson learned: Test command references diverged across docs after runner/test-framework updates. Prevention: Audit docs for command consistency whenever test tooling changes.
+- 2026-02-27 - [docs] Lesson learned: README test commands can drift after migrating to pytest and confuse contributors. Prevention: Keep README test instructions aligned with `run_tests.ps1` modes (`default`, `-ApiOnly`, `-Full`).
 - 2026-02-01 - [docs] Lesson learned: Testing strategy wasn't optimized for API rate limits in free tier. Prevention: Document API call budget per test and recommended development workflow.
 - 2026-01-31 - [docs] Lesson learned: Enforce the lessons-learned log update on every task. Prevention: Always add a log entry immediately after completing any change.
 - 2026-01-31 - [docs] Lesson learned: Duplicate sections confuse readers. Prevention: Consolidate repeated content during documentation updates.
