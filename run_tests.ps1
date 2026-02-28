@@ -9,12 +9,14 @@ param(
 Write-Host "`n=== Swimming Schedule Converter Test Suite ===" -ForegroundColor Cyan
 Write-Host "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n" -ForegroundColor Gray
 
-if (Test-Path "D:/code/calendar_import/.venv/Scripts/python.exe") {
-    $python = "D:/code/calendar_import/.venv/Scripts/python.exe"
-} elseif (Test-Path "D:/code/calendar_import/venv/Scripts/python.exe") {
-    $python = "D:/code/calendar_import/venv/Scripts/python.exe"
+$projectRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$venvPython = Join-Path $projectRoot ".venv/Scripts/python.exe"
+
+if (Test-Path $venvPython) {
+    $python = $venvPython
 } else {
     $python = "python"
+    Write-Host "Warning: .venv not found at $venvPython. Falling back to PATH python." -ForegroundColor Yellow
 }
 
 # Ensure pytest is available in the selected environment

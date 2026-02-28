@@ -23,12 +23,14 @@ if (-not $SkipTests) {
 # Step 2: Start the app
 Write-Host "Step 2: Starting Streamlit app...`n" -ForegroundColor Yellow
 
-if (Test-Path "D:/code/calendar_import/.venv/Scripts/python.exe") {
-    $python = "D:/code/calendar_import/.venv/Scripts/python.exe"
-} elseif (Test-Path "D:/code/calendar_import/venv/Scripts/python.exe") {
-    $python = "D:/code/calendar_import/venv/Scripts/python.exe"
+$projectRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$venvPython = Join-Path $projectRoot ".venv/Scripts/python.exe"
+
+if (Test-Path $venvPython) {
+    $python = $venvPython
 } else {
     $python = "python"
+    Write-Host "Warning: .venv not found at $venvPython. Falling back to PATH python." -ForegroundColor Yellow
 }
 
 # Stop any existing instances

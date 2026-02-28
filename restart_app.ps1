@@ -17,8 +17,16 @@ if ($ipAddress) {
 }
 Write-Host "🌐 Accessible from local network (192.168.x.x)`n" -ForegroundColor Yellow
 
+$projectRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$venvPython = Join-Path $projectRoot ".venv/Scripts/python.exe"
+$python = if (Test-Path $venvPython) { $venvPython } else { "python" }
+
+if ($python -eq "python") {
+    Write-Host "Warning: .venv not found at $venvPython. Falling back to PATH python." -ForegroundColor Yellow
+}
+
 # Start in background on all interfaces (0.0.0.0)
-Start-Process -FilePath "D:/code/calendar_import/venv/Scripts/python.exe" -ArgumentList "-m", "streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501" -WorkingDirectory "D:\code\calendar_import" -WindowStyle Hidden
+Start-Process -FilePath $python -ArgumentList "-m", "streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501" -WorkingDirectory $projectRoot -WindowStyle Hidden
 
 Write-Host "✅ App restarted! Opening browser..." -ForegroundColor Green
 Start-Sleep -Seconds 3

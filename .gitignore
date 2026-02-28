@@ -38,7 +38,6 @@ config.json
 Thumbs.db
 
 # Ignore virtual environments
-venv/
 .venv/
 env/
 ENV/

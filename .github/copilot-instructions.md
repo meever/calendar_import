@@ -145,12 +145,12 @@ git commit -m "feat: improved extraction"
 - Test coverage for critical paths (extraction, export, validation)
 
 ### 2. Virtual Environment - Always
-**NEVER install packages globally. ALWAYS use venv.**
+**NEVER install packages globally. ALWAYS use .venv.**
 
 ```powershell
-# Activate venv before any pip command
-.\venv\Scripts\Activate.ps1  # Windows
-source venv/bin/activate      # Mac/Linux
+# Activate .venv before any pip command
+.\.venv\Scripts\Activate.ps1  # Windows
+source .venv/bin/activate      # Mac/Linux
 
 # Install dependencies
 pip install -r requirements.txt
@@ -298,8 +298,8 @@ YYYY-MM-DD - [area] Lesson learned: <specific issue/insight>. Prevention: <actio
 # 1. Pull latest
 git pull
 
-# 2. Activate venv
-.\venv\Scripts\Activate.ps1
+# 2. Activate .venv
+.\.venv\Scripts\Activate.ps1
 
 # 3. Run tests (baseline)
 .\run_tests.ps1
@@ -349,6 +349,7 @@ git push
 - 2026-01-31 - [ios] Lesson learned: iOS Safari may not offer direct downloads for .ics files. Prevention: Offer a ZIP download option for saving via Files.
 
 ### Documentation & Code Quality
+- 2026-02-28 - [env] Lesson learned: Keeping both `venv` and `.venv` plus dual-path script fallbacks caused inconsistent local behavior on Windows. Prevention: Standardize to `.venv` only in scripts/docs and remove legacy `venv` folders.
 - 2026-02-27 - [docs] Lesson learned: Release/version process is easy to skip unless codified in-repo. Prevention: Keep a simple `VERSION` + `.bumpversion.cfg` flow and document tag/push steps in README.
 - 2026-02-27 - [docs] Lesson learned: Mixed `venv` and `.venv` examples in deployment docs can break copy-paste setup. Prevention: Keep environment-path examples consistent across quickstart, deployment, and service configs.
 - 2026-02-27 - [docs] Lesson learned: Test command references diverged across docs after runner/test-framework updates. Prevention: Audit docs for command consistency whenever test tooling changes.
@@ -588,8 +589,8 @@ except:
 
 ### ✅ Do This Instead
 ```python
-# Use venv
-.\venv\Scripts\Activate.ps1
+# Use .venv
+.\.venv\Scripts\Activate.ps1
 pip install package
 
 # Hide API keys
@@ -659,7 +660,7 @@ Desktop:
 ## Key Reminders
 
 1. **Tests are mandatory** - No exceptions
-2. **Venv always** - Global installs break reproducibility
+2. **.venv always** - Global installs break reproducibility
 3. **Secrets stay secret** - Never in code, never in UI
 4. **Type hints everywhere** - Makes code self-documenting
 5. **Business rules matter** - Don't split training sessions
@@ -672,7 +673,7 @@ Desktop:
 
 ```powershell
 # Development
-.\venv\Scripts\Activate.ps1      # Activate venv
+.\.venv\Scripts\Activate.ps1      # Activate .venv
 .\dev.ps1                        # Test + run app
 .\run_tests.ps1                  # Run all tests
 .\restart_app.ps1                # Restart Streamlit

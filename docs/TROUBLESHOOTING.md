@@ -148,7 +148,7 @@ streamlit run app.py --server.port 8502
 **Virtual environment issues:**
 
 ```powershell
-# Recreate venv
+# Recreate .venv
 Remove-Item .venv -Recurse -Force
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
