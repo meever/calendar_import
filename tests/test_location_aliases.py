@@ -117,6 +117,10 @@ class TestResolveLocationNone:
         config = _build_config()
         assert config.resolve_location(None) is None
 
+    def test_whitespace_only(self):
+        config = _build_config()
+        assert config.resolve_location("   ") is None
+
 
 class TestLocationAliasesSerialization:
     """Aliases survive round-trip serialization."""

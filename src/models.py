@@ -147,7 +147,7 @@ class Config:
         Returns:
             Matching Location or None if not found
         """
-        if not name:
+        if not name or not name.strip():
             return None
         
         # 1. Exact match on canonical name
@@ -155,7 +155,7 @@ class Config:
             return self.locations[name]
         
         # 2. Case-insensitive match on canonical name
-        name_lower = name.lower()
+        name_lower = name.strip().lower()
         for loc in self.locations.values():
             if loc.name.lower() == name_lower:
                 return loc

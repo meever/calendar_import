@@ -219,6 +219,11 @@ IMPORTANT:
                     if resolved:
                         event.location = resolved
                         event.location_name = resolved.name
+                    else:
+                        self.logger.warning(
+                            "Unknown location '%s' — will fall back to day-type default",
+                            event.location_name,
+                        )
 
                 parsed_events.append(event)
             except Exception as error:
