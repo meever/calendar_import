@@ -188,7 +188,7 @@ _MOCK_SCHEDULE_JSON = json.dumps({
             "start_time": "2026-04-20T17:00:00",
             "end_time": "2026-04-20T19:00:00",
             "summary": "Swimming",
-            "location_name": "Regis",
+            "location_name": "regis college",
             "is_ambiguous": False,
             "original_text": "4/20 周一 5-7 PM @ Regis 下水+陆上",
         },
@@ -196,7 +196,7 @@ _MOCK_SCHEDULE_JSON = json.dumps({
             "start_time": "2026-04-22T17:00:00",
             "end_time": "2026-04-22T19:00:00",
             "summary": "Swimming",
-            "location_name": "Regis",
+            "location_name": "regis college",
             "is_ambiguous": False,
             "original_text": "4/22 周三 5-7 PM @ Regis 下水+陆上",
         },
@@ -204,7 +204,7 @@ _MOCK_SCHEDULE_JSON = json.dumps({
             "start_time": "2026-04-24T17:00:00",
             "end_time": "2026-04-24T19:00:00",
             "summary": "Swimming",
-            "location_name": "Regis",
+            "location_name": "regis college",
             "is_ambiguous": False,
             "original_text": "4/24 周五 5-7 PM @ Regis 下水+陆上",
         },
@@ -212,7 +212,7 @@ _MOCK_SCHEDULE_JSON = json.dumps({
             "start_time": "2026-04-25T17:00:00",
             "end_time": "2026-04-25T18:30:00",
             "summary": "Swimming",
-            "location_name": "MIT",
+            "location_name": "zesiger",
             "is_ambiguous": False,
             "original_text": "4/25 周六 5 - 6:30 PM @ MIT 下水",
         },
@@ -220,7 +220,7 @@ _MOCK_SCHEDULE_JSON = json.dumps({
             "start_time": "2026-04-26T17:00:00",
             "end_time": "2026-04-26T19:00:00",
             "summary": "Swimming",
-            "location_name": "Brandeis",
+            "location_name": "gosman",
             "is_ambiguous": False,
             "original_text": "4/26 周日 5-7 PM @ Brandeis 下水+陆上",
         },
@@ -247,21 +247,20 @@ class TestParseEventsFromResponse:
     """
 
     def test_five_events_parsed(self):
-        """Rest days (4/21, 4/23) are excluded; 5 events remain."""
+        """All 5 events in the fixture are parsed (fixture contains only event days)."""
         extractor = _make_extractor()
         events = extractor._parse_events_from_response(_MOCK_SCHEDULE_JSON, "Swimming")
         assert len(events) == 5
 
-    def test_no_rest_day_events(self):
-        """4/21 and 4/23 must not appear in the output."""
+    def test_only_fixture_dates_present(self):
+        """Parsed events must correspond exactly to the 5 dates supplied in the fixture."""
         extractor = _make_extractor()
         events = extractor._parse_events_from_response(_MOCK_SCHEDULE_JSON, "Swimming")
         dates = {e.start_time.date().isoformat() for e in events}
-        assert "2026-04-21" not in dates
-        assert "2026-04-23" not in dates
+        assert dates == {"2026-04-20", "2026-04-22", "2026-04-24", "2026-04-25", "2026-04-26"}
 
     def test_mit_event_resolves_to_zesiger_address(self):
-        """The 4/25 MIT event must resolve to the Zesiger Center address."""
+        """Alias 'zesiger' in the mock response resolves to the MIT canonical location."""
         extractor = _make_extractor()
         events = extractor._parse_events_from_response(_MOCK_SCHEDULE_JSON, "Swimming")
         mit_events = [e for e in events if e.start_time.date().isoformat() == "2026-04-25"]
@@ -269,10 +268,11 @@ class TestParseEventsFromResponse:
         mit_event = mit_events[0]
         assert mit_event.location is not None
         assert mit_event.location.name == "MIT"
+        assert mit_event.location_name == "MIT"  # normalised to canonical name
         assert "Zesiger" in mit_event.location.address
 
     def test_regis_events_have_correct_location(self):
-        """Events on 4/20, 4/22, and 4/24 must resolve to the Regis location."""
+        """Alias 'regis college' in the mock response resolves to the Regis canonical location."""
         extractor = _make_extractor()
         events = extractor._parse_events_from_response(_MOCK_SCHEDULE_JSON, "Swimming")
         regis_dates = {"2026-04-20", "2026-04-22", "2026-04-24"}
@@ -281,9 +281,10 @@ class TestParseEventsFromResponse:
         for event in regis_events:
             assert event.location is not None
             assert event.location.name == "Regis"
+            assert event.location_name == "Regis"  # normalised to canonical name
 
     def test_brandeis_event_has_correct_location(self):
-        """The 4/26 Brandeis event must resolve to the Gosman Center address."""
+        """Alias 'gosman' in the mock response resolves to the Brandeis canonical location."""
         extractor = _make_extractor()
         events = extractor._parse_events_from_response(_MOCK_SCHEDULE_JSON, "Swimming")
         brandeis_events = [e for e in events if e.start_time.date().isoformat() == "2026-04-26"]
@@ -291,6 +292,7 @@ class TestParseEventsFromResponse:
         brandeis_event = brandeis_events[0]
         assert brandeis_event.location is not None
         assert brandeis_event.location.name == "Brandeis"
+        assert brandeis_event.location_name == "Brandeis"  # normalised to canonical name
         assert "Gosman" in brandeis_event.location.address
 
 
