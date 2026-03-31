@@ -37,6 +37,7 @@ class Location:
     address: str
     is_default_weekday: bool = False
     is_default_weekend: bool = False
+    aliases: List[str] = field(default_factory=list)
     
     def __str__(self) -> str:
         return f"{self.name}: {self.address}"
@@ -131,6 +132,42 @@ class Config:
         if location.is_default_weekend:
             self.default_weekend_location = location.name
     
+    def resolve_location(self, name: str) -> Optional[Location]:
+        """
+        Resolve a location name or alias to a Location object.
+        
+        Lookup order:
+        1. Exact match on canonical location name
+        2. Case-insensitive match on canonical location name
+        3. Case-insensitive match on any alias
+        
+        Args:
+            name: Location name, abbreviation, or alias to resolve
+            
+        Returns:
+            Matching Location or None if not found
+        """
+        if not name or not name.strip():
+            return None
+        
+        # 1. Exact match on canonical name
+        if name in self.locations:
+            return self.locations[name]
+        
+        # 2. Case-insensitive match on canonical name
+        name_lower = name.strip().lower()
+        for loc in self.locations.values():
+            if loc.name.lower() == name_lower:
+                return loc
+        
+        # 3. Case-insensitive match on aliases
+        for loc in self.locations.values():
+            for alias in loc.aliases:
+                if alias.lower() == name_lower:
+                    return loc
+        
+        return None
+    
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
         return {
@@ -139,7 +176,8 @@ class Config:
                     "name": loc.name,
                     "address": loc.address,
                     "is_default_weekday": loc.is_default_weekday,
-                    "is_default_weekend": loc.is_default_weekend
+                    "is_default_weekend": loc.is_default_weekend,
+                    "aliases": loc.aliases
                 }
                 for name, loc in self.locations.items()
             },
@@ -171,7 +209,8 @@ class Config:
                 name=loc_data["name"],
                 address=loc_data["address"],
                 is_default_weekday=loc_data.get("is_default_weekday", False),
-                is_default_weekend=loc_data.get("is_default_weekend", False)
+                is_default_weekend=loc_data.get("is_default_weekend", False),
+                aliases=loc_data.get("aliases", [])
             )
             config.add_location(location)
         
@@ -186,18 +225,27 @@ class Config:
         config.add_location(Location(
             name="Regis",
             address="Regis College Athletic Facility, 235 Wellesley St, Weston, MA",
-            is_default_weekday=True
+            is_default_weekday=True,
+            aliases=["regis college"]
         ))
         
         config.add_location(Location(
             name="Brandeis",
             address="Gosman Sports and Convocation Center, 415 South St, Waltham, MA",
-            is_default_weekend=True
+            is_default_weekend=True,
+            aliases=["gosman"]
         ))
         
         config.add_location(Location(
             name="Wightman",
-            address="Wightman Tennis Center, 100 Brown St, Weston, MA"
+            address="Wightman Tennis Center, 100 Brown St, Weston, MA",
+            aliases=["wightman tennis"]
+        ))
+        
+        config.add_location(Location(
+            name="MIT",
+            address="MIT Zesiger Center, 120 Vassar St, Cambridge, MA 02139",
+            aliases=["mit pool", "zesiger", "zesiger center"]
         ))
         
         return config

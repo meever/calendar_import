@@ -4,19 +4,29 @@
       "name": "Regis",
       "address": "Regis College Athletic Facility, 235 Wellesley St, Weston, MA",
       "is_default_weekday": true,
-      "is_default_weekend": false
+      "is_default_weekend": false,
+      "aliases": ["regis college"]
     },
     "Brandeis": {
       "name": "Brandeis",
       "address": "Gosman Sports and Convocation Center, 415 South St, Waltham, MA",
       "is_default_weekday": false,
-      "is_default_weekend": true
+      "is_default_weekend": true,
+      "aliases": ["gosman"]
     },
     "Wightman": {
       "name": "Wightman",
       "address": "Wightman Tennis Center, 100 Brown St, Weston, MA",
       "is_default_weekday": false,
-      "is_default_weekend": false
+      "is_default_weekend": false,
+      "aliases": ["wightman tennis"]
+    },
+    "MIT": {
+      "name": "MIT",
+      "address": "MIT Zesiger Center, 120 Vassar St, Cambridge, MA 02139",
+      "is_default_weekday": false,
+      "is_default_weekend": false,
+      "aliases": ["mit pool", "zesiger", "zesiger center"]
     }
   },
   "timezone": "America/New_York",
