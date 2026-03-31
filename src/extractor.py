@@ -39,10 +39,13 @@ class EventExtractor:
     
     def _build_system_prompt(self) -> str:
         """Build system prompt with location context"""
-        location_info = "\n".join([
-            f"- {loc.name}: {loc.address}"
-            for loc in self.config.locations.values()
-        ])
+        location_lines = []
+        for loc in self.config.locations.values():
+            alias_text = ""
+            if loc.aliases:
+                alias_text = f" (also known as: {', '.join(loc.aliases)})"
+            location_lines.append(f"- {loc.name}{alias_text}: {loc.address}")
+        location_info = "\n".join(location_lines)
         inferred_year = current_schedule_year()
         
         return f"""You are an expert at extracting structured swimming practice schedules from unstructured text.
@@ -76,7 +79,8 @@ CRITICAL RULES:
    - Skip rest days entirely
 
 3. **LOCATION DETECTION**:
-   - If the text EXPLICITLY mentions a location (e.g., "@ Regis", "@ Wightman", "@ Brandeis"), use that location name
+   - If the text EXPLICITLY mentions a location (e.g., "@ Regis", "@ Wightman", "@ Brandeis", "@ MIT"), use that location's canonical name from the list above
+   - If a location alias or abbreviation is used (e.g., "@ mit", "@ zesiger"), use the canonical name it maps to
    - If NO location is mentioned, leave location_name as null
    - Be precise - only use location if explicitly stated
 
@@ -211,7 +215,10 @@ IMPORTANT:
                     continue
 
                 if event.location_name:
-                    event.location = self.config.locations.get(event.location_name)
+                    resolved = self.config.resolve_location(event.location_name)
+                    if resolved:
+                        event.location = resolved
+                        event.location_name = resolved.name
 
                 parsed_events.append(event)
             except Exception as error:
@@ -280,10 +287,13 @@ IMPORTANT:
             )
 
         current_schedule = "\n".join(events_text)
-        locations_info = "\n".join([
-            f"- {name}: {location.address}"
-            for name, location in self.config.locations.items()
-        ])
+        locations_lines = []
+        for name, location in self.config.locations.items():
+            alias_text = ""
+            if location.aliases:
+                alias_text = f" (also known as: {', '.join(location.aliases)})"
+            locations_lines.append(f"- {name}{alias_text}: {location.address}")
+        locations_info = "\n".join(locations_lines)
 
         prompt = f"""You are a schedule editing assistant. Here is the current swimming schedule:
 
