@@ -335,6 +335,7 @@ git push
 **📚 Living history of project insights - update after every task!**
 
 ### Testing & Performance
+- 2026-04-01 - [models] Lesson learned: Location aliases with case-insensitive resolution via Config.resolve_location() makes AI-extracted location names robust against casing variations and alternate spellings. Prevention: Always use resolve_location() (never direct dict lookup) when mapping a text-extracted location name to a Location object.
 - 2026-02-28 - [ci] Lesson learned: GitHub Actions used Python 3.11 while `TatSu==5.16.0` requires Python >=3.12, causing install-time CI failures before tests ran. Prevention: Keep pinned dependencies aligned with CI Python version (or update workflow Python in the same change).
 - 2026-02-27 - [tests] Lesson learned: Full-suite output can include third-party deprecation noise from `google-genai` that does not reflect app regressions. Prevention: Add targeted `pytest` warning filters for known external warnings while keeping other warnings visible.
 - 2026-02-27 - [tooling] Lesson learned: PowerShell string multiplication formatting can print literal text if not parenthesized. Prevention: Use explicit grouped expressions for status banner rendering in scripts.
