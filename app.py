@@ -17,14 +17,13 @@ load_dotenv()
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from models import CalendarFormat
 from config_manager import ConfigManager
 from extractor import EventExtractor
-from rules_engine import RulesEngine
 from calendar_exporter import CalendarExporter
 from shared_calendar_manager import SharedCalendarManager
-from pipeline import process_schedule
+from pipeline import process_schedule, apply_rules
 from settings import DEFAULT_EVENT_TITLE
+from streamlit_secrets import get_streamlit_secret
 
 
 # ============================================================================
@@ -54,7 +53,8 @@ load_css()
 
 def check_password():
     """Password gatekeeper for Streamlit Cloud deployment."""
-    if "APP_PASSWORD" not in st.secrets:
+    app_password = get_streamlit_secret(st.secrets, "APP_PASSWORD")
+    if not app_password:
         return True
     
     if "password_correct" not in st.session_state:
@@ -72,7 +72,7 @@ def check_password():
                                   placeholder="Password...")
         
         if st.button("Login", type="primary", use_container_width=True):
-            if password == st.secrets["APP_PASSWORD"]:
+            if password == app_password:
                 st.session_state.password_correct = True
                 st.rerun()
             else:
@@ -103,8 +103,10 @@ def init_session_state() -> None:
     if 'api_key' not in st.session_state:
         st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
 
-    if not st.session_state.api_key and "GEMINI_API_KEY" in st.secrets:
-        st.session_state.api_key = st.secrets["GEMINI_API_KEY"]
+    if not st.session_state.api_key:
+        secret_api_key = get_streamlit_secret(st.secrets, "GEMINI_API_KEY", "")
+        if secret_api_key:
+            st.session_state.api_key = secret_api_key
 
     if 'show_export_create' not in st.session_state:
         st.session_state.show_export_create = False
@@ -273,8 +275,7 @@ def render_ai_edit_section(key_prefix: str):
                     config=st.session_state.config
                 )
                 new_events = extractor.edit(st.session_state.events, instructions)
-                rules_engine = RulesEngine(st.session_state.config)
-                new_events = rules_engine.sort_events(new_events)
+                new_events = apply_rules(new_events, st.session_state.config)
 
                 st.session_state.events = new_events
                 st.session_state.edit_history.append((instructions, new_events.copy()))
@@ -304,7 +305,7 @@ def render_export_section(events, key_prefix: str, show_shared_label: bool = Fal
     exporter = CalendarExporter(st.session_state.config)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    ics_content = exporter.export(events, CalendarFormat.ICS)
+    ics_content = exporter.export_to_ics(events)
     ics_data = ics_content.encode('utf-8-sig')
     zip_data = exporter.export_to_ics_zip(events, ics_filename=f"swim_{timestamp}.ics")
 

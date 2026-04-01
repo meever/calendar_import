@@ -1,5 +1,5 @@
 """
-Calendar export functionality for multiple formats
+Calendar export functionality (ICS / ZIP)
 """
 
 from typing import List
@@ -9,7 +9,7 @@ import io
 import zipfile
 from ics import Calendar, Event as IcsEvent
 from zoneinfo import ZoneInfo
-from models import Event, Config, CalendarFormat
+from models import Event, Config
 from settings import CALENDAR_NAME_PREFIX, ICS_DEFAULT_FILENAME, ICS_METHOD
 
 
@@ -140,114 +140,6 @@ class CalendarExporter:
         
         return ics_content
     
-    def export_to_google_calendar_csv(self, events: List[Event], output_path: str = None) -> str:
-        """
-        Export events to Google Calendar CSV format
-        
-        Args:
-            events: List of events to export
-            output_path: Optional file path to save
-            
-        Returns:
-            CSV content as string
-        """
-        import csv
-        from io import StringIO
-        
-        output = StringIO()
-        writer = csv.writer(output)
-        
-        # Google Calendar CSV headers
-        writer.writerow([
-            'Subject', 'Start Date', 'Start Time', 'End Date', 'End Time',
-            'All Day Event', 'Description', 'Location', 'Private'
-        ])
-        
-        for event in events:
-            # Build description with original text and notes
-            description_parts = []
-            if event.raw_text:
-                description_parts.append(f"Original: {event.raw_text}")
-            if event.notes:
-                description_parts.append(f" | {event.notes}")
-            description = "".join(description_parts)
-            
-            writer.writerow([
-                event.summary,
-                event.start_time.strftime('%m/%d/%Y'),
-                event.start_time.strftime('%I:%M %p'),
-                event.end_time.strftime('%m/%d/%Y'),
-                event.end_time.strftime('%I:%M %p'),
-                'False',
-                description,
-                event.location.address if event.location else '',
-                'False'
-            ])
-        
-        csv_content = output.getvalue()
-        
-        # Save to file if path provided
-        if output_path:
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8', newline='') as f:
-                f.write(csv_content)
-        
-        return csv_content
-    
-    def export_to_outlook_csv(self, events: List[Event], output_path: str = None) -> str:
-        """
-        Export events to Outlook CSV format
-        
-        Args:
-            events: List of events to export
-            output_path: Optional file path to save
-            
-        Returns:
-            CSV content as string
-        """
-        import csv
-        from io import StringIO
-        
-        output = StringIO()
-        writer = csv.writer(output)
-        
-        # Outlook CSV headers
-        writer.writerow([
-            'Subject', 'Start Date', 'Start Time', 'End Date', 'End Time',
-            'All day event', 'Reminder on/off', 'Reminder Date', 'Reminder Time',
-            'Meeting Organizer', 'Required Attendees', 'Optional Attendees',
-            'Meeting Resources', 'Billing Information', 'Categories',
-            'Description', 'Location', 'Mileage', 'Priority', 'Private',
-            'Sensitivity', 'Show time as'
-        ])
-        
-        for event in events:
-            writer.writerow([
-                event.summary,
-                event.start_time.strftime('%m/%d/%Y'),
-                event.start_time.strftime('%I:%M:%S %p'),
-                event.end_time.strftime('%m/%d/%Y'),
-                event.end_time.strftime('%I:%M:%S %p'),
-                'False',
-                'False',
-                '', '',
-                '', '', '', '',
-                '', '',
-                event.raw_text or '',
-                event.location.address if event.location else '',
-                '', 'Normal', 'False', 'Normal', '2'
-            ])
-        
-        csv_content = output.getvalue()
-        
-        # Save to file if path provided
-        if output_path:
-            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8', newline='') as f:
-                f.write(csv_content)
-        
-        return csv_content
-
     def export_to_ics_zip(self, events: List[Event], ics_filename: str = None) -> bytes:
         """
         Export events to a ZIP containing a single ICS file.
@@ -270,42 +162,3 @@ class CalendarExporter:
             zf.writestr(ics_filename, ics_bytes)
 
         return buffer.getvalue()
-    
-    def export(self, events: List[Event], format: CalendarFormat, output_path: str = None) -> str:
-        """
-        Export events to specified format
-        
-        Args:
-            events: List of events to export
-            format: CalendarFormat enum
-            output_path: Optional file path to save
-            
-        Returns:
-            Exported content as string (with UTF-8 BOM for ICS format)
-        """
-        if format == CalendarFormat.ICS:
-            return self.export_to_ics(events, output_path)
-        elif format == CalendarFormat.GOOGLE:
-            return self.export_to_google_calendar_csv(events, output_path)
-        elif format == CalendarFormat.OUTLOOK:
-            return self.export_to_outlook_csv(events, output_path)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
-    
-    def get_file_extension(self, format: CalendarFormat) -> str:
-        """Get appropriate file extension for format"""
-        extensions = {
-            CalendarFormat.ICS: "ics",
-            CalendarFormat.GOOGLE: "csv",
-            CalendarFormat.OUTLOOK: "csv"
-        }
-        return extensions.get(format, "txt")
-    
-    def get_mime_type(self, format: CalendarFormat) -> str:
-        """Get MIME type for format"""
-        mime_types = {
-            CalendarFormat.ICS: "text/calendar",
-            CalendarFormat.GOOGLE: "text/csv",
-            CalendarFormat.OUTLOOK: "text/csv"
-        }
-        return mime_types.get(format, "text/plain")

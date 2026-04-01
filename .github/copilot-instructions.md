@@ -349,6 +349,7 @@ git push
 - 2026-01-31 - [ios] Lesson learned: iOS Safari may not offer direct downloads for .ics files. Prevention: Offer a ZIP download option for saving via Files.
 
 ### Documentation & Code Quality
+- 2026-03-31 - [deps] Lesson learned: Hand-frozen transitive dependency pins drifted to versions unavailable on Python 3.9, which broke fresh `.venv` creation. Prevention: Keep `requirements.txt` focused on direct dependencies plus explicit compatibility pins, then verify installability in a clean virtual environment.
 - 2026-02-28 - [env] Lesson learned: Keeping both `venv` and `.venv` plus dual-path script fallbacks caused inconsistent local behavior on Windows. Prevention: Standardize to `.venv` only in scripts/docs and remove legacy `venv` folders.
 - 2026-02-27 - [docs] Lesson learned: Release/version process is easy to skip unless codified in-repo. Prevention: Keep a simple `VERSION` + `.bumpversion.cfg` flow and document tag/push steps in README.
 - 2026-02-27 - [docs] Lesson learned: Mixed `venv` and `.venv` examples in deployment docs can break copy-paste setup. Prevention: Keep environment-path examples consistent across quickstart, deployment, and service configs.

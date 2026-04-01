@@ -10,15 +10,12 @@ from rules_engine import RulesEngine
 from settings import DEFAULT_EVENT_TITLE
 
 
-def process_schedule(raw_text: str, api_key: str, config: Config) -> List[Event]:
+def apply_rules(events: List[Event], config: Config) -> List[Event]:
     """
-    Run extraction and deterministic business rules.
+    Apply deterministic business rules to events.
 
-    Returns processed events ready for review/export.
+    Handles location defaults, merge, dedup, sort, and fallback title.
     """
-    extractor = EventExtractor(api_key=api_key, config=config)
-    events = extractor.extract(raw_text)
-
     rules_engine = RulesEngine(config)
     events = rules_engine.apply_location_rules(events)
     events = rules_engine.merge_overlapping_events(events)
@@ -30,3 +27,14 @@ def process_schedule(raw_text: str, api_key: str, config: Config) -> List[Event]
             event.summary = DEFAULT_EVENT_TITLE
 
     return events
+
+
+def process_schedule(raw_text: str, api_key: str, config: Config) -> List[Event]:
+    """
+    Run extraction and deterministic business rules.
+
+    Returns processed events ready for review/export.
+    """
+    extractor = EventExtractor(api_key=api_key, config=config)
+    events = extractor.extract(raw_text)
+    return apply_rules(events, config)

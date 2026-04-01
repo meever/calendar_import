@@ -26,8 +26,6 @@ class DayType(Enum):
 class CalendarFormat(Enum):
     """Supported calendar export formats"""
     ICS = "ics"
-    GOOGLE = "google_calendar"
-    OUTLOOK = "outlook"
 
 
 @dataclass

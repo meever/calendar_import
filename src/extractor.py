@@ -138,13 +138,9 @@ IMPORTANT:
                 return response.text.strip()
             except Exception as error:
                 last_error = error
-                error_text = str(error)
-                is_transient = (
-                    AI_TRANSIENT_ERROR_KEYWORDS[0] in error_text
-                    or AI_TRANSIENT_ERROR_KEYWORDS[1] in error_text
-                    or AI_TRANSIENT_ERROR_KEYWORDS[2] in error_text
-                    or AI_TRANSIENT_ERROR_KEYWORDS[3] in error_text.lower()
-                    or AI_TRANSIENT_ERROR_KEYWORDS[4] in error_text.lower()
+                error_text = str(error).lower()
+                is_transient = any(
+                    kw.lower() in error_text for kw in AI_TRANSIENT_ERROR_KEYWORDS
                 )
 
                 if attempt >= max_attempts or not is_transient:

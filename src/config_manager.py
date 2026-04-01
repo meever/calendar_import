@@ -54,20 +54,3 @@ class ConfigManager:
                 json.dump(self.config.to_dict(), f, indent=2)
         except Exception as e:
             logger.warning("Failed to save config to %s: %s", self.config_path, e)
-    
-    def get_config(self) -> Config:
-        """Get current configuration (load if not already loaded)"""
-        if self.config is None:
-            return self.load()
-        return self.config
-    
-    def update_config(self, config: Config) -> None:
-        """Update and persist configuration"""
-        self.config = config
-        self.save()
-    
-    def reset_to_default(self) -> Config:
-        """Reset to default configuration"""
-        self.config = Config.get_default_config()
-        self.save()
-        return self.config
